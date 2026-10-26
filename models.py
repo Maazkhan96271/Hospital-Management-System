@@ -1,5 +1,6 @@
 """Database models for the Hospital Management System."""
 
+import json
 from datetime import datetime, date, time
 
 from flask_sqlalchemy import SQLAlchemy
@@ -145,6 +146,16 @@ class DoctorProfile(db.Model):
         lazy="dynamic",
         cascade="all, delete-orphan",
     )
+
+    @property
+    def parsed_availability(self):
+        """Return the availability dictionary parsed from JSON."""
+        if not self.availability:
+            return {}
+        try:
+            return json.loads(self.availability)
+        except (json.JSONDecodeError, TypeError):
+            return {}
 
     def __repr__(self) -> str:
         return f"<DoctorProfile user_id={self.user_id}>"

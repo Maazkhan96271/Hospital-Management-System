@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}Consultation – Doctor – HMS{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-clipboard2-pulse text-primary"></i> Consultation</h2>
+    <a href="{{ url_for('doctor_dashboard') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left"></i> Back to Dashboard
+    </a>
+</div>
+
+<div class="row g-4">
+    <!-- Appointment Info -->
+    <div class="col-lg-4">
+        <div class="card border-info mb-4">
+            <div class="card-header bg-info text-white">
+                <i class="bi bi-calendar-event"></i> Appointment #{{ appointment.id }}
+            </div>
+            <div class="card-body">
+                <p><strong>Date:</strong> {{ appointment.appointment_date }}</p>
+                <p><strong>Time:</strong> {{ appointment.appointment_time.strftime('%H:%M') }}</p>
+                <p><strong>Status:</strong>
+                    {% if appointment.status == 'completed' %}
+                        <span class="badge bg-success">Completed</span>
+                    {% elif appointment.status == 'cancelled' %}
+                        <span class="badge bg-danger">Cancelled</span>
+                    {% else %}
+                        <span class="badge bg-warning text-dark">Scheduled</span>
+                    {% endif %}
+                </p>
+                <p><strong>Reason:</strong> {{ appointment.reason or '—' }}</p>
+            </div>
+        </div>
+
+        <!-- Patient Info -->
+        <div class="card border-primary mb-4">
+            <div class="card-header bg-primary text-white">
+                <i class="bi bi-person-heart"></i> Patient Info
+            </div>
+            <div class="card-body">
+                {% if appointment.patient %}
+                    <p><strong>Name:</strong> {{ appointment.patient.full_name }}</p>
+                    <p><strong>Email:</strong> {{ appointment.patient.email }}</p>
+                    <p><strong>Phone:</strong> {{ appointment.patient.phone or '—' }}</p>
+                {% else %}
+                    <p class="text-muted">Patient info unavailable.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Treatment Form + History -->
+    <div class="col-lg-8">
+        <!-- Treatment Form -->
+        <div class="card shadow mb-4">
+            <div class="card-header bg-success text-white">
+                <i class="bi bi-journal-medical"></i>
+                {% if appointment.treatment %}
+                    Update Treatment Record
+                {% else %}
+                    New Treatment Record
+                {% endif %}
+            </div>
+            <div class="card-body p-4">
+                <div class="alert alert-info small">
+                    <i class="bi bi-info-circle"></i>
+                    Submitting this form will <strong>mark the appointment as Completed</strong> and save the treatment record.
+                </div>
+                <form method="POST" novalidate>
+                    {{ form.hidden_tag() }}
+
+                    <div class="mb-3">
+                        {{ form.diagnosis.label(class="form-label fw-bold") }}
+                        {{ form.diagnosis(class="form-control", rows=3, placeholder="Enter diagnosis…") }}
+                        {% for e in form.diagnosis.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.prescription.label(class="form-label fw-bold") }}
+                        {{ form.prescription(class="form-control", rows=3, placeholder="Prescribed medications / instructions…") }}
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.notes.label(class="form-label fw-bold") }}
+                        {{ form.notes(class="form-control", rows=2, placeholder="Additional notes…") }}
+                    </div>
+
+                    <div class="d-grid">
+                        {{ form.submit(class="btn btn-success btn-lg") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Patient's Past Treatment History -->
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-clock-history"></i> Patient Treatment History
+            </div>
+            <div class="card-body">
+                {% if past_treatments %}
+                <div class="accordion" id="historyAccordion">
+                    {% for t in past_treatments %}
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button {{ '' if loop.first else 'collapsed' }}" type="button"
+                                    data-bs-toggle="collapse" data-bs-target="#hist{{ t.id }}">
+                                <span class="me-3">
+                                    <i class="bi bi-journal-medical"></i>
+                                    Appointment #{{ t.appointment_id }}
+                                </span>
+                                <small class="text-muted">
+                                    {{ t.appointment.appointment_date if t.appointment else '—' }}
+                                </small>
+                            </button>
+                        </h2>
+                        <div id="hist{{ t.id }}" class="accordion-collapse collapse {{ 'show' if loop.first }}"
+                             data-bs-parent="#historyAccordion">
+                            <div class="accordion-body">
+                                <p><strong>Diagnosis:</strong> {{ t.diagnosis or '—' }}</p>
+                                <p><strong>Prescription:</strong> {{ t.prescription or '—' }}</p>
+                                <p><strong>Notes:</strong> {{ t.notes or '—' }}</p>
+                                <small class="text-muted">Recorded: {{ t.created_at.strftime('%Y-%m-%d %H:%M') if t.created_at else '—' }}</small>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted mb-0">No prior treatment records for this patient.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

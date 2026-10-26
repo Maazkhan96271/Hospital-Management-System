@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Add Doctor – Admin – HMS{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-person-plus text-success"></i> Add New Doctor</h2>
+    <a href="{{ url_for('admin_doctors') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left"></i> Back to Doctors
+    </a>
+</div>
+
+<div class="card shadow">
+    <div class="card-body p-4">
+        <form method="POST" novalidate>
+            {{ form.hidden_tag() }}
+
+            <h5 class="text-muted mb-3"><i class="bi bi-person"></i> Account Details</h5>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    {{ form.first_name.label(class="form-label") }}
+                    {{ form.first_name(class="form-control", placeholder="First name") }}
+                    {% for e in form.first_name.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                </div>
+                <div class="col-md-6 mb-3">
+                    {{ form.last_name.label(class="form-label") }}
+                    {{ form.last_name(class="form-control", placeholder="Last name") }}
+                    {% for e in form.last_name.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    {{ form.username.label(class="form-label") }}
+                    {{ form.username(class="form-control", placeholder="Username") }}
+                    {% for e in form.username.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                </div>
+                <div class="col-md-4 mb-3">
+                    {{ form.email.label(class="form-label") }}
+                    {{ form.email(class="form-control", placeholder="Email") }}
+                    {% for e in form.email.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                </div>
+                <div class="col-md-4 mb-3">
+                    {{ form.phone.label(class="form-label") }}
+                    {{ form.phone(class="form-control", placeholder="Phone (optional)") }}
+                    {% for e in form.phone.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                </div>
+            </div>
+            <div class="mb-3">
+                {{ form.password.label(class="form-label") }}
+                {{ form.password(class="form-control", placeholder="Minimum 6 characters") }}
+                {% for e in form.password.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+            </div>
+
+            <hr>
+            <h5 class="text-muted mb-3"><i class="bi bi-clipboard2-pulse"></i> Professional Details</h5>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    {{ form.department_id.label(class="form-label") }}
+                    {{ form.department_id(class="form-select") }}
+                </div>
+                <div class="col-md-6 mb-3">
+                    {{ form.specialisation.label(class="form-label") }}
+                    {{ form.specialisation(class="form-control", placeholder="e.g. Cardiology") }}
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    {{ form.qualification.label(class="form-label") }}
+                    {{ form.qualification(class="form-control", placeholder="e.g. MBBS, MD") }}
+                </div>
+                <div class="col-md-6 mb-3">
+                    {{ form.experience_years.label(class="form-label") }}
+                    {{ form.experience_years(class="form-control", placeholder="0") }}
+                </div>
+            </div>
+
+            <div class="d-grid mt-3">
+                {{ form.submit(class="btn btn-success btn-lg") }}
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

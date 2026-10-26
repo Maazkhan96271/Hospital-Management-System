@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Edit Doctor – Admin – HMS{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-pencil text-primary"></i> Edit Doctor: {{ doctor.full_name }}</h2>
+    <a href="{{ url_for('admin_doctors') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left"></i> Back to Doctors
+    </a>
+</div>
+
+<div class="card shadow">
+    <div class="card-body p-4">
+        <!-- Read-only info -->
+        <div class="alert alert-light">
+            <strong>Username:</strong> <code>{{ doctor.username }}</code> &nbsp;|&nbsp;
+            <strong>Email:</strong> {{ doctor.email }} &nbsp;|&nbsp;
+            <strong>Joined:</strong> {{ doctor.created_at.strftime('%Y-%m-%d') if doctor.created_at else '—' }}
+        </div>
+
+        <form method="POST" novalidate>
+            {{ form.hidden_tag() }}
+
+            <h5 class="text-muted mb-3"><i class="bi bi-person"></i> Personal Details</h5>
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    {{ form.first_name.label(class="form-label") }}
+                    {{ form.first_name(class="form-control") }}
+                    {% for e in form.first_name.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                </div>
+                <div class="col-md-4 mb-3">
+                    {{ form.last_name.label(class="form-label") }}
+                    {{ form.last_name(class="form-control") }}
+                    {% for e in form.last_name.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                </div>
+                <div class="col-md-4 mb-3">
+                    {{ form.phone.label(class="form-label") }}
+                    {{ form.phone(class="form-control") }}
+                </div>
+            </div>
+
+            <hr>
+            <h5 class="text-muted mb-3"><i class="bi bi-clipboard2-pulse"></i> Professional Details</h5>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    {{ form.department_id.label(class="form-label") }}
+                    {{ form.department_id(class="form-select") }}
+                </div>
+                <div class="col-md-6 mb-3">
+                    {{ form.specialisation.label(class="form-label") }}
+                    {{ form.specialisation(class="form-control") }}
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    {{ form.qualification.label(class="form-label") }}
+                    {{ form.qualification(class="form-control") }}
+                </div>
+                <div class="col-md-6 mb-3">
+                    {{ form.experience_years.label(class="form-label") }}
+                    {{ form.experience_years(class="form-control") }}
+                </div>
+            </div>
+
+            <div class="d-grid mt-3">
+                {{ form.submit(class="btn btn-primary btn-lg") }}
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

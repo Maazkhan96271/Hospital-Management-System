@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}My Appointments – HMS{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+    <div>
+        <h2 class="mb-1">
+            <i class="bi bi-calendar-check text-primary"></i> My Appointment History
+        </h2>
+        <p class="text-muted mb-0">Track all your past and upcoming consultations, dynamic statuses, and prescribed treatments.</p>
+    </div>
+    <div>
+        <a href="{{ url_for('patient_book_appointment') }}" class="btn btn-primary shadow-sm">
+            <i class="bi bi-calendar-plus"></i> Book New Appointment
+        </a>
+    </div>
+</div>
+
+{% if appointments %}
+<div class="row g-4">
+    {% for a in appointments %}
+    <div class="col-12">
+        <div class="card shadow-sm border-0 border-start {{ 'border-primary border-4' if a.status == 'scheduled' else ('border-success border-4' if a.status == 'completed' else 'border-secondary border-4') }}">
+            <div class="card-body p-4">
+                <div class="row align-items-center">
+                    <!-- Doctor & Dept Info -->
+                    <div class="col-md-4 mb-3 mb-md-0">
+                        <div class="d-flex align-items-center">
+                            <div class="rounded-circle p-3 me-3 {{ 'bg-primary-subtle text-primary' if a.status == 'scheduled' else ('bg-success-subtle text-success' if a.status == 'completed' else 'bg-secondary-subtle text-secondary') }}">
+                                <i class="bi bi-person-heart fs-3"></i>
+                            </div>
+                            <div>
+                                <h5 class="mb-0 fw-bold">Dr. {{ a.doctor_profile.user.full_name }}</h5>
+                                <span class="badge bg-light text-dark border">
+                                    {{ a.doctor_profile.department.name if a.doctor_profile.department else 'General Department' }}
+                                </span>
+                                <div class="small text-muted">{{ a.doctor_profile.specialisation or 'Consultant Physician' }}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Date & Time -->
+                    <div class="col-md-3 mb-3 mb-md-0">
+                        <div class="fw-semibold text-dark fs-6">
+                            <i class="bi bi-calendar-date text-primary"></i> {{ a.appointment_date.strftime('%A, %b %d, %Y') }}
+                        </div>
+                        <div class="text-secondary small">
+                            <i class="bi bi-clock"></i> {{ a.appointment_time.strftime('%I:%M %p') }}
+                        </div>
+                        {% if a.reason %}
+                        <div class="text-muted small mt-1 text-truncate" style="max-width: 250px;" title="{{ a.reason }}">
+                            <strong>Reason:</strong> {{ a.reason }}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Dynamic Status Badge -->
+                    <div class="col-md-2 mb-3 mb-md-0 text-md-center">
+                        {% if a.status == 'completed' %}
+                            <span class="badge bg-success fs-6 px-3 py-2 rounded-pill shadow-sm">
+                                <i class="bi bi-check-circle"></i> Completed
+                            </span>
+                        {% elif a.status == 'cancelled' %}
+                            <span class="badge bg-danger fs-6 px-3 py-2 rounded-pill">
+                                <i class="bi bi-x-circle"></i> Cancelled
+                            </span>
+                        {% elif a.status == 'no_show' %}
+                            <span class="badge bg-secondary fs-6 px-3 py-2 rounded-pill">
+                                <i class="bi bi-dash-circle"></i> No Show
+                            </span>
+                        {% else %}
+                            <span class="badge bg-primary fs-6 px-3 py-2 rounded-pill shadow-sm">
+                                <i class="bi bi-hourglass-split"></i> Scheduled
+                            </span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="col-md-3 text-md-end">
+                        <div class="btn-group">
+                            <a href="{{ url_for('patient_appointment_detail', appointment_id=a.id) }}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-eye"></i> Details
+                            </a>
+                            {% if a.status == 'scheduled' %}
+                            <form action="{{ url_for('patient_cancel_appointment', appointment_id=a.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to cancel this appointment?');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                    <i class="bi bi-x-circle"></i> Cancel
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Treatment Section (if treatment exists) -->
+                {% if a.treatment %}
+                <div class="mt-3 pt-3 border-top">
+                    <div class="alert alert-success bg-success-subtle border-success-subtle text-success-emphasis mb-0">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0 fw-bold">
+                                <i class="bi bi-clipboard2-pulse"></i> Medical Treatment & Prescription Record
+                            </h6>
+                            <small class="text-muted">Recorded: {{ a.treatment.updated_at.strftime('%b %d, %Y') if a.treatment.updated_at else 'Completed' }}</small>
+                        </div>
+                        <div class="row g-2">
+                            <div class="col-md-4">
+                                <strong class="small text-uppercase text-secondary d-block">Diagnosis:</strong>
+                                <span class="text-dark">{{ a.treatment.diagnosis or 'No diagnosis noted.' }}</span>
+                            </div>
+                            <div class="col-md-4">
+                                <strong class="small text-uppercase text-secondary d-block">Prescription:</strong>
+                                <span class="text-dark font-monospace small bg-white px-2 py-1 rounded d-inline-block">{{ a.treatment.prescription or 'None' }}</span>
+                            </div>
+                            <div class="col-md-4">
+                                <strong class="small text-uppercase text-secondary d-block">Doctor Notes:</strong>
+                                <span class="text-muted small fst-italic">{{ a.treatment.notes or 'No additional notes.' }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% elif a.status == 'completed' %}
+                <div class="mt-3 pt-2 border-top">
+                    <small class="text-muted fst-italic">
+                        <i class="bi bi-info-circle"></i> Consultation marked as completed. Treatment details pending doctor entry.
+                    </small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card shadow-sm border-0 py-5 text-center">
+    <div class="card-body">
+        <i class="bi bi-calendar-x display-3 text-muted"></i>
+        <h4 class="mt-3 text-muted">No appointments found.</h4>
+        <p class="text-muted">You haven't scheduled any appointments yet.</p>
+        <a href="{{ url_for('patient_book_appointment') }}" class="btn btn-primary px-4 mt-2">
+            <i class="bi bi-calendar-plus"></i> Book Your First Appointment
+        </a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

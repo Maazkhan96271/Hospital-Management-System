@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% block title %}Medical Departments & Doctors – HMS{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+    <div>
+        <h2 class="mb-1">
+            <i class="bi bi-hospital text-primary"></i> Medical Departments & Doctors
+        </h2>
+        <p class="text-muted mb-0">Browse our specialized departments and view our doctors' 7-day availability schedules.</p>
+    </div>
+    <div>
+        <a href="{{ url_for('patient_book_appointment') }}" class="btn btn-primary shadow-sm">
+            <i class="bi bi-calendar-plus"></i> Book an Appointment
+        </a>
+    </div>
+</div>
+
+{% set days_list = [
+    ('monday', 'Mon'),
+    ('tuesday', 'Tue'),
+    ('wednesday', 'Wed'),
+    ('thursday', 'Thu'),
+    ('friday', 'Fri'),
+    ('saturday', 'Sat'),
+    ('sunday', 'Sun')
+] %}
+
+<!-- Departments Accordion / Sections -->
+{% if departments %}
+    {% for dept in departments %}
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-primary bg-opacity-10 py-3 border-0">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h4 class="mb-1 text-primary fw-bold">
+                        <i class="bi bi-building"></i> {{ dept.name }}
+                    </h4>
+                    <p class="text-secondary small mb-0">{{ dept.description or 'Specialized healthcare services with board-certified physicians.' }}</p>
+                </div>
+                <span class="badge bg-primary rounded-pill fs-6 px-3 py-2">
+                    {{ dept.doctors.count() }} Doctor{{ 's' if dept.doctors.count() != 1 }}
+                </span>
+            </div>
+        </div>
+        <div class="card-body">
+            {% set dept_doctors = dept.doctors.all() %}
+            {% if dept_doctors %}
+            <div class="row g-4">
+                {% for doc in dept_doctors %}
+                {% if doc.user and doc.user.is_active %}
+                <div class="col-lg-6">
+                    <div class="card h-100 border shadow-sm">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <div>
+                                    <h5 class="card-title fw-bold text-dark mb-1">
+                                        <i class="bi bi-person-circle text-primary"></i> Dr. {{ doc.user.full_name }}
+                                    </h5>
+                                    <div class="text-primary fw-semibold small mb-1">
+                                        {{ doc.specialisation or dept.name }}
+                                    </div>
+                                    <div class="text-muted small">
+                                        <i class="bi bi-mortarboard"></i> {{ doc.qualification or 'MD' }}
+                                        &bull;
+                                        <i class="bi bi-clock-history"></i> {{ doc.experience_years }} yr{{ 's' if doc.experience_years != 1 }} experience
+                                    </div>
+                                </div>
+                                <a href="{{ url_for('patient_book_appointment', doctor_id=doc.id) }}" class="btn btn-sm btn-outline-primary px-3">
+                                    <i class="bi bi-calendar-check"></i> Book
+                                </a>
+                            </div>
+
+                            <!-- 7-Day Weekly Availability -->
+                            <div class="mt-3 pt-3 border-top">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="small fw-bold text-uppercase text-muted">
+                                        <i class="bi bi-calendar-week"></i> 7-Day Weekly Schedule
+                                    </span>
+                                </div>
+                                {% set schedule = doc.parsed_availability %}
+                                <div class="d-flex flex-wrap gap-1">
+                                    {% for day_key, day_abbr in days_list %}
+                                        {% set day_data = schedule.get(day_key, {}) %}
+                                        {% set is_avail = day_data.get('available', false) %}
+                                        <div class="text-center p-1 rounded border {{ 'bg-success-subtle border-success-subtle' if is_avail else 'bg-light border-light-subtle' }}" style="flex: 1 1 0; min-width: 48px;">
+                                            <div class="fw-bold small {{ 'text-success-emphasis' if is_avail else 'text-muted' }}">
+                                                {{ day_abbr }}
+                                            </div>
+                                            {% if is_avail %}
+                                                <small class="d-block text-success" style="font-size: 0.65rem; line-height: 1.1;">
+                                                    {{ day_data.get('start', '09:00') }}<br>{{ day_data.get('end', '17:00') }}
+                                                </small>
+                                            {% else %}
+                                                <small class="d-block text-muted" style="font-size: 0.65rem; line-height: 1.1;">
+                                                    Off
+                                                </small>
+                                            {% endif %}
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-muted fst-italic mb-0">No doctors currently assigned to this department.</p>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+{% endif %}
+
+<!-- Unassigned Doctors Section (if any) -->
+{% if unassigned_doctors %}
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-secondary bg-opacity-10 py-3 border-0">
+        <h4 class="mb-0 text-secondary fw-bold">
+            <i class="bi bi-people"></i> General & Visiting Practitioners
+        </h4>
+    </div>
+    <div class="card-body">
+        <div class="row g-4">
+            {% for doc in unassigned_doctors %}
+            {% if doc.user and doc.user.is_active %}
+            <div class="col-lg-6">
+                <div class="card h-100 border shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div>
+                                <h5 class="card-title fw-bold text-dark mb-1">
+                                    <i class="bi bi-person-circle text-secondary"></i> Dr. {{ doc.user.full_name }}
+                                </h5>
+                                <div class="text-secondary fw-semibold small mb-1">
+                                    {{ doc.specialisation or 'General Practitioner' }}
+                                </div>
+                                <div class="text-muted small">
+                                    <i class="bi bi-mortarboard"></i> {{ doc.qualification or 'MBBS' }}
+                                    &bull;
+                                    <i class="bi bi-clock-history"></i> {{ doc.experience_years }} yr{{ 's' if doc.experience_years != 1 }} experience
+                                </div>
+                            </div>
+                            <a href="{{ url_for('patient_book_appointment', doctor_id=doc.id) }}" class="btn btn-sm btn-outline-primary px-3">
+                                <i class="bi bi-calendar-check"></i> Book
+                            </a>
+                        </div>
+
+                        <!-- 7-Day Weekly Availability -->
+                        <div class="mt-3 pt-3 border-top">
+                            <span class="small fw-bold text-uppercase text-muted d-block mb-2">
+                                <i class="bi bi-calendar-week"></i> 7-Day Weekly Schedule
+                            </span>
+                            {% set schedule = doc.parsed_availability %}
+                            <div class="d-flex flex-wrap gap-1">
+                                {% for day_key, day_abbr in days_list %}
+                                    {% set day_data = schedule.get(day_key, {}) %}
+                                    {% set is_avail = day_data.get('available', false) %}
+                                    <div class="text-center p-1 rounded border {{ 'bg-success-subtle border-success-subtle' if is_avail else 'bg-light border-light-subtle' }}" style="flex: 1 1 0; min-width: 48px;">
+                                        <div class="fw-bold small {{ 'text-success-emphasis' if is_avail else 'text-muted' }}">
+                                            {{ day_abbr }}
+                                        </div>
+                                        {% if is_avail %}
+                                            <small class="d-block text-success" style="font-size: 0.65rem; line-height: 1.1;">
+                                                {{ day_data.get('start', '09:00') }}<br>{{ day_data.get('end', '17:00') }}
+                                            </small>
+                                        {% else %}
+                                            <small class="d-block text-muted" style="font-size: 0.65rem; line-height: 1.1;">
+                                                Off
+                                            </small>
+                                        {% endif %}
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if not departments and not unassigned_doctors %}
+<div class="card shadow-sm border-0 py-5 text-center">
+    <div class="card-body">
+        <i class="bi bi-hospital display-3 text-muted"></i>
+        <h5 class="mt-3 text-muted">No medical departments or doctors found.</h5>
+        <p class="text-muted">Please contact the hospital administrator to add doctors.</p>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

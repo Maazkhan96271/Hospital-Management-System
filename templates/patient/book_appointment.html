@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% block title %}Book Appointment – HMS{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1"><i class="bi bi-calendar-plus text-primary"></i> Book an Appointment</h2>
+        <p class="text-muted mb-0">Select your preferred doctor, date, and consultation time slot.</p>
+    </div>
+    <a href="{{ url_for('patient_doctors') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-hospital"></i> View Doctor Schedules
+    </a>
+</div>
+
+<div class="row g-4">
+    <!-- Booking Form Column -->
+    <div class="col-lg-7">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-primary text-white py-3">
+                <h5 class="mb-0 fw-semibold"><i class="bi bi-pencil-square"></i> Appointment Details</h5>
+            </div>
+            <div class="card-body p-4">
+                <form method="POST" novalidate>
+                    {{ form.hidden_tag() }}
+
+                    <!-- Doctor Selection -->
+                    <div class="mb-3">
+                        {{ form.doctor_id.label(class="form-label fw-bold") }}
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
+                            {{ form.doctor_id(class="form-select" + (" is-invalid" if form.doctor_id.errors else ""), id="doctorSelect") }}
+                        </div>
+                        {% for error in form.doctor_id.errors %}
+                            <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle"></i> {{ error }}</div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <!-- Date Picker -->
+                        <div class="col-md-6">
+                            {{ form.appointment_date.label(class="form-label fw-bold") }}
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-calendar-date"></i></span>
+                                {{ form.appointment_date(class="form-control" + (" is-invalid" if form.appointment_date.errors else ""), type="date") }}
+                            </div>
+                            <small class="text-muted">Must be today or in the future.</small>
+                            {% for error in form.appointment_date.errors %}
+                                <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle"></i> {{ error }}</div>
+                            {% endfor %}
+                        </div>
+
+                        <!-- Time Picker -->
+                        <div class="col-md-6">
+                            {{ form.appointment_time.label(class="form-label fw-bold") }}
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-clock"></i></span>
+                                {{ form.appointment_time(class="form-control" + (" is-invalid" if form.appointment_time.errors else ""), type="time") }}
+                            </div>
+                            <small class="text-muted">Consultation slot time.</small>
+                            {% for error in form.appointment_time.errors %}
+                                <div class="text-danger small mt-1 fw-bold"><i class="bi bi-slash-circle-fill"></i> {{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- Reason for Visit -->
+                    <div class="mb-4">
+                        {{ form.reason.label(class="form-label fw-bold") }}
+                        {{ form.reason(class="form-control" + (" is-invalid" if form.reason.errors else ""), rows=3, placeholder="Describe symptoms or purpose of your visit (optional)...") }}
+                        {% for error in form.reason.errors %}
+                            <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle"></i> {{ error }}</div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Booking policy alert -->
+                    <div class="alert alert-info py-2 px-3 small mb-4 d-flex align-items-center">
+                        <i class="bi bi-shield-check fs-5 me-2"></i>
+                        <span>Our scheduling engine automatically verifies real-time doctor availability and prevents double-booking.</span>
+                    </div>
+
+                    <div class="d-grid">
+                        {{ form.submit(class="btn btn-primary btn-lg shadow-sm") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Doctor Info & Schedule Helper Sidebar -->
+    <div class="col-lg-5">
+        {% if selected_doctor_info %}
+        <div class="card shadow-sm border-0 border-top border-primary border-3 mb-4">
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="bg-primary-subtle text-primary rounded-circle p-3 me-3">
+                        <i class="bi bi-person-circle fs-3"></i>
+                    </div>
+                    <div>
+                        <h5 class="mb-0 fw-bold">Dr. {{ selected_doctor_info.user.full_name }}</h5>
+                        <span class="badge bg-primary">{{ selected_doctor_info.specialisation or 'General Medicine' }}</span>
+                        <span class="badge bg-light text-secondary border">
+                            {{ selected_doctor_info.department.name if selected_doctor_info.department else 'General Department' }}
+                        </span>
+                    </div>
+                </div>
+
+                <ul class="list-group list-group-flush small mb-3">
+                    <li class="list-group-item px-0 d-flex justify-content-between">
+                        <span class="text-muted">Qualification:</span>
+                        <span class="fw-semibold">{{ selected_doctor_info.qualification or 'MD' }}</span>
+                    </li>
+                    <li class="list-group-item px-0 d-flex justify-content-between">
+                        <span class="text-muted">Experience:</span>
+                        <span class="fw-semibold">{{ selected_doctor_info.experience_years }} years</span>
+                    </li>
+                    <li class="list-group-item px-0 d-flex justify-content-between">
+                        <span class="text-muted">Email:</span>
+                        <span>{{ selected_doctor_info.user.email }}</span>
+                    </li>
+                </ul>
+
+                <h6 class="fw-bold text-uppercase small text-muted mb-2">
+                    <i class="bi bi-clock-history"></i> Weekly Availability:
+                </h6>
+                {% set schedule = selected_doctor_info.parsed_availability %}
+                {% if schedule %}
+                <div class="table-responsive">
+                    <table class="table table-sm table-bordered text-center align-middle mb-0" style="font-size: 0.8rem;">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Day</th>
+                                <th>Status</th>
+                                <th>Hours</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for day_name in ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'] %}
+                            {% set day_data = schedule.get(day_name, {}) %}
+                            <tr class="{{ 'table-success-subtle' if day_data.get('available') else '' }}">
+                                <td class="fw-bold">{{ day_name | capitalize }}</td>
+                                <td>
+                                    {% if day_data.get('available') %}
+                                        <span class="badge bg-success">Available</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Off</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if day_data.get('available') %}
+                                        {{ day_data.get('start', '09:00') }} - {{ day_data.get('end', '17:00') }}
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted small mb-0">General consultation hours: Mon-Fri 09:00 - 17:00.</p>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Booking Guidelines Card -->
+        <div class="card shadow-sm border-0 bg-light">
+            <div class="card-body">
+                <h6 class="fw-bold text-dark"><i class="bi bi-info-circle text-primary"></i> Booking Guidelines</h6>
+                <ul class="small text-muted ps-3 mb-0">
+                    <li>Appointments must be booked for future dates and times.</li>
+                    <li>The system prevents duplicate bookings for both you and the attending doctor.</li>
+                    <li>You may cancel scheduled appointments at any time from your appointment history.</li>
+                    <li>Upon consultation completion, your prescriptions and medical diagnosis will be available in your dashboard.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
