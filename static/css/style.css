@@ -1,0 +1,24 @@
+/* Hospital Management System – custom styles */
+
+body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background-color: #f8f9fa;
+}
+
+main {
+    flex: 1;
+}
+
+.card {
+    border-radius: 0.75rem;
+}
+
+.card-header {
+    font-weight: 600;
+}
+
+footer {
+    margin-top: auto;
+}

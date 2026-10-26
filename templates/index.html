@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Home – HMS{% endblock %}
+
+{% block content %}
+<div class="px-4 py-5 my-5 text-center">
+    <h1 class="display-5 fw-bold text-primary">
+        <i class="bi bi-hospital"></i> Hospital Management System
+    </h1>
+    <div class="col-lg-6 mx-auto">
+        <p class="lead mb-4">
+            A comprehensive platform for managing hospital operations — appointments,
+            doctors, patients, departments, and treatments — all in one place.
+        </p>
+        <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
+            {% if current_user.is_authenticated %}
+                <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-lg px-4 gap-3">
+                    <i class="bi bi-speedometer2"></i> Go to Dashboard
+                </a>
+            {% else %}
+                <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg px-4 gap-3">
+                    <i class="bi bi-box-arrow-in-right"></i> Login
+                </a>
+                <a href="{{ url_for('register') }}" class="btn btn-outline-secondary btn-lg px-4">
+                    <i class="bi bi-person-plus"></i> Register as Patient
+                </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Feature cards -->
+<div class="row row-cols-1 row-cols-md-3 g-4 mb-5">
+    <div class="col">
+        <div class="card h-100 border-primary">
+            <div class="card-body text-center">
+                <i class="bi bi-calendar-check display-4 text-primary"></i>
+                <h5 class="card-title mt-3">Easy Appointments</h5>
+                <p class="card-text">Book, reschedule, or cancel appointments with just a few clicks.</p>
+            </div>
+        </div>
+    </div>
+    <div class="col">
+        <div class="card h-100 border-success">
+            <div class="card-body text-center">
+                <i class="bi bi-people display-4 text-success"></i>
+                <h5 class="card-title mt-3">Doctor Directory</h5>
+                <p class="card-text">Browse doctors by department and check their availability schedule.</p>
+            </div>
+        </div>
+    </div>
+    <div class="col">
+        <div class="card h-100 border-info">
+            <div class="card-body text-center">
+                <i class="bi bi-clipboard2-pulse display-4 text-info"></i>
+                <h5 class="card-title mt-3">Treatment Records</h5>
+                <p class="card-text">Securely store and retrieve diagnosis, prescriptions, and notes.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

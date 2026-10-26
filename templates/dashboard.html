@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}Dashboard – HMS{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">
+    <i class="bi bi-speedometer2 text-primary"></i>
+    Dashboard
+    <span class="badge bg-primary fs-6">{{ current_user.role | capitalize }}</span>
+</h2>
+
+{# ─────────────── ADMIN DASHBOARD ─────────────── #}
+{% if current_user.role == 'admin' %}
+<div class="row g-4 mb-4">
+    <div class="col-md-4">
+        <div class="card text-white bg-primary h-100">
+            <div class="card-body text-center">
+                <i class="bi bi-people display-4"></i>
+                <h3 class="mt-2">{{ users | length }}</h3>
+                <p class="card-text">Total Users</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-white bg-success h-100">
+            <div class="card-body text-center">
+                <i class="bi bi-building display-4"></i>
+                <h3 class="mt-2">{{ departments | length }}</h3>
+                <p class="card-text">Departments</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-white bg-info h-100">
+            <div class="card-body text-center">
+                <i class="bi bi-calendar-check display-4"></i>
+                <h3 class="mt-2">{{ appointments | length }}</h3>
+                <p class="card-text">Appointments</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header"><i class="bi bi-people"></i> All Users</div>
+    <div class="card-body table-responsive">
+        <table class="table table-striped mb-0">
+            <thead>
+                <tr>
+                    <th>ID</th><th>Name</th><th>Username</th><th>Email</th><th>Role</th><th>Active</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in users %}
+                <tr>
+                    <td>{{ u.id }}</td>
+                    <td>{{ u.full_name }}</td>
+                    <td>{{ u.username }}</td>
+                    <td>{{ u.email }}</td>
+                    <td><span class="badge bg-secondary">{{ u.role | capitalize }}</span></td>
+                    <td>{{ "Yes" if u.is_active else "No" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{# ─────────────── DOCTOR DASHBOARD ─────────────── #}
+{% elif current_user.role == 'doctor' %}
+<div class="row g-4 mb-4">
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header"><i class="bi bi-person-badge"></i> My Profile</div>
+            <div class="card-body">
+                {% if profile %}
+                    <p><strong>Specialisation:</strong> {{ profile.specialisation or '—' }}</p>
+                    <p><strong>Qualification:</strong> {{ profile.qualification or '—' }}</p>
+                    <p><strong>Experience:</strong> {{ profile.experience_years }} years</p>
+                    <p><strong>Department:</strong>
+                        {{ profile.department.name if profile.department else '—' }}
+                    </p>
+                {% else %}
+                    <p class="text-muted">No doctor profile found. Contact an admin.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header"><i class="bi bi-calendar-check"></i> My Appointments</div>
+            <div class="card-body">
+                {% if appointments %}
+                    <ul class="list-group list-group-flush">
+                        {% for a in appointments %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            {{ a.appointment_date }} {{ a.appointment_time.strftime('%H:%M') }}
+                            <span class="badge bg-{{ 'success' if a.status == 'completed' else 'warning' }}">
+                                {{ a.status | capitalize }}
+                            </span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-muted">No appointments yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{# ─────────────── PATIENT DASHBOARD ─────────────── #}
+{% else %}
+<div class="card">
+    <div class="card-header"><i class="bi bi-calendar-check"></i> My Appointments</div>
+    <div class="card-body">
+        {% if appointments %}
+            <div class="table-responsive">
+                <table class="table table-striped mb-0">
+                    <thead>
+                        <tr>
+                            <th>Date</th><th>Time</th><th>Doctor</th><th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for a in appointments %}
+                        <tr>
+                            <td>{{ a.appointment_date }}</td>
+                            <td>{{ a.appointment_time.strftime('%H:%M') }}</td>
+                            <td>{{ a.doctor_profile.user.full_name if a.doctor_profile else '—' }}</td>
+                            <td>
+                                <span class="badge bg-{{ 'success' if a.status == 'completed' else 'warning' }}">
+                                    {{ a.status | capitalize }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="text-muted">You have no appointments. Book one to get started!</p>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}
