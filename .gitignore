@@ -28,3 +28,6 @@ instance/
 # Environment variables
 .env
 .flaskenv
+
+# Pytest
+.pytest_cache/
