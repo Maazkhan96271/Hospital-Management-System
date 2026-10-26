@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Patient Dashboard – HMS{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>
+        <i class="bi bi-person-heart text-primary"></i> Patient Dashboard
+    </h2>
+    <span class="badge bg-primary fs-6">Patient</span>
+</div>
+
+<!-- Welcome & Quick Stats -->
+<div class="row g-4 mb-4">
+    <div class="col-md-4">
+        <div class="card text-white bg-primary h-100">
+            <div class="card-body text-center">
+                <i class="bi bi-person-circle display-4"></i>
+                <h5 class="mt-2">{{ current_user.full_name }}</h5>
+                <p class="mb-0">{{ current_user.email }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-white bg-info h-100">
+            <div class="card-body text-center">
+                <i class="bi bi-calendar-check display-4"></i>
+                <h3 class="mt-2">{{ appointments | length }}</h3>
+                <p class="mb-0">Total Appointments</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-white bg-warning h-100">
+            <div class="card-body text-center">
+                <i class="bi bi-hourglass-split display-4"></i>
+                <h3 class="mt-2">{{ appointments | selectattr('status', 'equalto', 'scheduled') | list | length }}</h3>
+                <p class="mb-0">Upcoming</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Appointments -->
+<div class="card">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-calendar-week"></i> My Appointments</span>
+    </div>
+    <div class="card-body table-responsive">
+        {% if appointments %}
+        <table class="table table-striped table-hover mb-0">
+            <thead class="table-dark">
+                <tr>
+                    <th>ID</th>
+                    <th>Doctor</th>
+                    <th>Date</th>
+                    <th>Time</th>
+                    <th>Reason</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in appointments %}
+                <tr>
+                    <td>{{ a.id }}</td>
+                    <td>{{ a.doctor_profile.user.full_name if a.doctor_profile else '—' }}</td>
+                    <td>{{ a.appointment_date }}</td>
+                    <td>{{ a.appointment_time.strftime('%H:%M') }}</td>
+                    <td>{{ a.reason or '—' }}</td>
+                    <td>
+                        {% if a.status == 'completed' %}
+                            <span class="badge bg-success">Completed</span>
+                        {% elif a.status == 'cancelled' %}
+                            <span class="badge bg-danger">Cancelled</span>
+                        {% elif a.status == 'no_show' %}
+                            <span class="badge bg-secondary">No Show</span>
+                        {% else %}
+                            <span class="badge bg-warning text-dark">Scheduled</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+            <div class="text-center py-4">
+                <i class="bi bi-calendar-x display-4 text-muted"></i>
+                <p class="text-muted mt-2">You have no appointments yet.</p>
+                <p class="text-muted">Book an appointment to get started!</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

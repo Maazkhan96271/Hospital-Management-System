@@ -20,6 +20,7 @@ from flask_login import LoginManager, login_user, logout_user, login_required, c
 
 from config import Config
 from models import db, User, UserRole, Department, DoctorProfile, Appointment, Treatment
+from decorators import admin_required, doctor_required, patient_required
 
 # ---------------------------------------------------------------------------
 # Application factory
@@ -35,7 +36,8 @@ def create_app(config_class=Config) -> Flask:
     db.init_app(app)
     login_manager = LoginManager()
     login_manager.login_view = "login"
-    login_manager.login_message_category = "info"
+    login_manager.login_message = "Please log in to access this page."
+    login_manager.login_message_category = "warning"
     login_manager.init_app(app)
 
     @login_manager.user_loader
@@ -69,19 +71,26 @@ def create_app(config_class=Config) -> Flask:
         else:
             print("[INIT] Admin superuser already exists – skipping seed.")
 
-    # ------------------------------------------------------------------
-    # Routes
-    # ------------------------------------------------------------------
+    # ======================================================================
+    #  ROUTES
+    # ======================================================================
+
+    # ---- Public pages --------------------------------------------------
 
     @app.route("/")
     def index():
-        """Landing / dashboard page."""
+        """Landing page."""
         return render_template("index.html")
 
-    # ---- Authentication ------------------------------------------------
+    # ---- Unified Login (Admin, Doctor, Patient) ------------------------
 
     @app.route("/login", methods=["GET", "POST"])
     def login():
+        """Single login route for all roles (Admin, Doctor, Patient).
+
+        After successful authentication the user is redirected to their
+        role-specific dashboard.
+        """
         from forms import LoginForm
 
         if current_user.is_authenticated:
@@ -90,16 +99,27 @@ def create_app(config_class=Config) -> Flask:
         form = LoginForm()
         if form.validate_on_submit():
             user = User.query.filter_by(username=form.username.data).first()
-            if user and user.check_password(form.password.data):
+            if user and user.is_active and user.check_password(form.password.data):
                 login_user(user, remember=form.remember_me.data)
-                flash("Logged in successfully.", "success")
+                flash(f"Welcome back, {user.full_name}!", "success")
                 next_page = request.args.get("next")
-                return redirect(next_page or url_for("dashboard"))
+                if next_page:
+                    return redirect(next_page)
+                return redirect(url_for("dashboard"))
             flash("Invalid username or password.", "danger")
         return render_template("login.html", form=form)
 
+    # ---- Public Patient Registration -----------------------------------
+
     @app.route("/register", methods=["GET", "POST"])
     def register():
+        """Self-registration for **Patients only**.
+
+        Admin accounts are created only via the seed script or by an
+        existing Admin through the admin panel.  Doctor accounts are
+        created by Admins.  Public registration always assigns the
+        Patient role.
+        """
         from forms import RegistrationForm
 
         if current_user.is_authenticated:
@@ -113,7 +133,7 @@ def create_app(config_class=Config) -> Flask:
                 first_name=form.first_name.data,
                 last_name=form.last_name.data,
                 phone=form.phone.data,
-                role=UserRole.PATIENT,
+                role=UserRole.PATIENT,  # Hard-coded – no public admin/doctor reg
             )
             user.set_password(form.password.data)
             db.session.add(user)
@@ -122,6 +142,8 @@ def create_app(config_class=Config) -> Flask:
             return redirect(url_for("login"))
         return render_template("register.html", form=form)
 
+    # ---- Logout --------------------------------------------------------
+
     @app.route("/logout")
     @login_required
     def logout():
@@ -129,33 +151,73 @@ def create_app(config_class=Config) -> Flask:
         flash("You have been logged out.", "info")
         return redirect(url_for("index"))
 
-    # ---- Dashboard -----------------------------------------------------
+    # ---- Smart Dashboard Router ----------------------------------------
 
     @app.route("/dashboard")
     @login_required
     def dashboard():
-        """Role-aware dashboard."""
+        """Redirect the authenticated user to their role-specific dashboard."""
         if current_user.role == UserRole.ADMIN:
-            users = User.query.all()
-            departments = Department.query.all()
-            appointments = Appointment.query.all()
-            return render_template(
-                "dashboard.html",
-                users=users,
-                departments=departments,
-                appointments=appointments,
-            )
+            return redirect(url_for("admin_dashboard"))
         elif current_user.role == UserRole.DOCTOR:
-            profile = DoctorProfile.query.filter_by(user_id=current_user.id).first()
-            appointments = (
-                profile.doctor_appointments.all() if profile else []
-            )
-            return render_template(
-                "dashboard.html", profile=profile, appointments=appointments
-            )
-        else:  # Patient
-            appointments = current_user.patient_appointments.all()
-            return render_template("dashboard.html", appointments=appointments)
+            return redirect(url_for("doctor_dashboard"))
+        else:
+            return redirect(url_for("patient_dashboard"))
+
+    # ==================================================================
+    #  ADMIN ROUTES – protected by @admin_required
+    # ==================================================================
+
+    @app.route("/admin/dashboard")
+    @login_required
+    @admin_required
+    def admin_dashboard():
+        """Admin overview: users, departments, and all appointments."""
+        users = User.query.all()
+        departments = Department.query.all()
+        appointments = Appointment.query.order_by(Appointment.created_at.desc()).all()
+        return render_template(
+            "admin/dashboard.html",
+            users=users,
+            departments=departments,
+            appointments=appointments,
+        )
+
+    # ==================================================================
+    #  DOCTOR ROUTES – protected by @doctor_required
+    # ==================================================================
+
+    @app.route("/doctor/dashboard")
+    @login_required
+    @doctor_required
+    def doctor_dashboard():
+        """Doctor view: profile summary and assigned appointments."""
+        profile = DoctorProfile.query.filter_by(user_id=current_user.id).first()
+        appointments = profile.doctor_appointments.order_by(
+            Appointment.appointment_date.desc()
+        ).all() if profile else []
+        return render_template(
+            "doctor/dashboard.html",
+            profile=profile,
+            appointments=appointments,
+        )
+
+    # ==================================================================
+    #  PATIENT ROUTES – protected by @patient_required
+    # ==================================================================
+
+    @app.route("/patient/dashboard")
+    @login_required
+    @patient_required
+    def patient_dashboard():
+        """Patient view: personal appointments and quick-book action."""
+        appointments = current_user.patient_appointments.order_by(
+            Appointment.appointment_date.desc()
+        ).all()
+        return render_template(
+            "patient/dashboard.html",
+            appointments=appointments,
+        )
 
     return app
 
