@@ -1,0 +1,88 @@
+Here is a professional, ready-to-use README and project description for your GitHub repository. You can copy and paste this directly into your README.md file, and use the short tagline for your repository's public bio.
+
+Repository Bio / Short Description (For GitHub Sidebar)
+A comprehensive Hospital Management System built with Flask, SQLite, and Bootstrap 5, featuring secure role-based portals for Admins, Doctors, and Patients.
+
+🏥 Hospital Management System (HMS)
+A robust, web-based Hospital Management System designed to streamline hospital operations, patient appointment scheduling, and medical history tracking. Developed as part of the Modern Application Development (MAD 1) curriculum.
+
+✨ Key Features
+🔧 Admin Portal
+Dashboard Metrics: Real-time overview of total doctors, registered patients, and scheduled appointments.
+
+Staff Management: Full CRUD operations to manage doctor profiles, departments, and availability.
+
+System Monitoring: View and manage all system appointments and user accounts with search and filtering capabilities.
+
+🩺 Doctor Portal
+Schedule Management: View daily and weekly assigned appointments and patient lists.
+
+Availability Tracking: Easily update 7-day availability slots.
+
+Treatment Logging: Record diagnoses, prescriptions, and treatment notes directly against completed appointments.
+
+🧑‍⚕️ Patient Portal
+Self-Service Registration: Secure sign-up and profile management.
+
+Doctor Discovery: Search for doctors by department, specialization, and real-time 7-day availability.
+
+Appointment Booking: Seamless booking, rescheduling, and cancellation with built-in validation preventing double-booking conflicts.
+
+Medical History: Comprehensive view of past appointments, prescriptions, and diagnosis reports.
+
+🛠️ Tech Stack
+Backend: Python, Flask, Flask-SQLAlchemy, Flask-Login
+
+Frontend: Jinja2 Templates, HTML5, CSS, Bootstrap 5
+
+Database: SQLite (Programmatically initialized via SQLAlchemy)
+  📁 Project Structure
+Plaintext
+hospital_project/
+│
+├── app.py                 # Main entry point & application setup
+├── models.py              # SQLAlchemy database models & schemas
+├── routes.py              # Controller logic and route endpoints
+├── instance/              
+│   └── database.sqlite    # SQLite database (auto-generated)
+├── static/                
+│   └── css/
+│       └── style.css      # Custom styling sheets
+└── templates/             
+    ├── base.html          # Global layout template
+    ├── login.html         # User authentication view
+    ├── admin/             # Admin dashboard & management views
+    ├── doctor/            # Doctor portal & schedule views
+    └── patient/           # Patient dashboard & booking views
+🚀 Getting Started Locally
+Follow these instructions to get a copy of the project up and running on your local machine for development and testing.
+
+Prerequisites
+Python 3.8+ installed on your machine.
+
+pip package manager.
+
+Installation Steps
+Clone the repository:
+
+Bash
+git clone https://github.com/your-username/hospital-management-system.git
+cd hospital-management-system
+Create and activate a virtual environment:
+
+Bash
+python -m venv venv
+# On Windows:
+venv\Scripts\activate
+# On macOS/Linux:
+source venv/bin/activate
+Install dependencies:
+
+Bash
+pip install flask flask-sqlalchemy flask-login
+Initialize and run the application:
+
+Bash
+python app.py
+Access the application:
+Open your web browser and navigate to [http://127.0.0.1:5000](http://127.0.0.1:5000)
