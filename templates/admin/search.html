@@ -10,16 +10,21 @@
 </div>
 
 <!-- Search Bar -->
-<div class="card mb-4">
-    <div class="card-body">
-        <form action="{{ url_for('admin_search') }}" method="GET" class="row g-2 align-items-center">
+<div class="card mb-4 shadow-sm border-0">
+    <div class="card-body p-4">
+        <form action="{{ url_for('admin_search') }}" method="GET" class="row g-2 align-items-center needs-validation" novalidate>
             <div class="col-md-9">
-                <input type="text" name="q" class="form-control form-control-lg"
-                       value="{{ query }}"
-                       placeholder="Search by name, username, email, or specialisation…">
+                <div class="input-group input-group-lg has-validation">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" name="q" class="form-control"
+                           value="{{ query }}"
+                           placeholder="Search by name, username, email, or specialisation…"
+                           required minlength="1">
+                    <div class="invalid-feedback">Please enter a keyword to search.</div>
+                </div>
             </div>
             <div class="col-md-3 d-grid">
-                <button type="submit" class="btn btn-primary btn-lg"><i class="bi bi-search"></i> Search</button>
+                <button type="submit" class="btn btn-primary btn-lg shadow-sm"><i class="bi bi-search"></i> Search</button>
             </div>
         </form>
     </div>

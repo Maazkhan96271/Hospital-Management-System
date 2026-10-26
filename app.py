@@ -16,7 +16,7 @@ No manual database creation tools (e.g. ``flask db`` / ``sqlite3``) are required
 import json
 from datetime import date, timedelta, time as dt_time
 
-from flask import Flask, render_template, redirect, url_for, flash, request
+from flask import Flask, render_template, redirect, url_for, flash, request, jsonify
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from flask_wtf.csrf import CSRFProtect
 from sqlalchemy import or_
@@ -183,6 +183,78 @@ def create_app(config_class=Config) -> Flask:
             total_patients=total_patients,
             total_appointments=total_appointments,
         )
+
+    # ==================================================================
+    #  RESTful API ENDPOINTS
+    # ==================================================================
+
+    @app.route("/api/appointments-and-patients")
+    @login_required
+    def api_appointments_and_patients():
+        """RESTful API endpoint returning JSON data for the total number of appointments and patients."""
+        total_appointments = Appointment.query.count()
+        total_patients = User.query.filter_by(role=UserRole.PATIENT).count()
+        return jsonify({
+            "total_appointments": total_appointments,
+            "total_patients": total_patients,
+        })
+
+    @app.route("/api/stats")
+    @login_required
+    def api_stats():
+        """RESTful API endpoint returning complete metrics for appointments, patients, and departments."""
+        total_appointments = Appointment.query.count()
+        total_patients = User.query.filter_by(role=UserRole.PATIENT).count()
+        total_doctors = User.query.filter_by(role=UserRole.DOCTOR).count()
+        total_departments = Department.query.count()
+
+        # Breakdown by appointment status
+        status_counts = {
+            "Scheduled": Appointment.query.filter_by(status=AppointmentStatus.SCHEDULED).count(),
+            "Completed": Appointment.query.filter_by(status=AppointmentStatus.COMPLETED).count(),
+            "Cancelled": Appointment.query.filter_by(status=AppointmentStatus.CANCELLED).count(),
+            "No Show": Appointment.query.filter_by(status=AppointmentStatus.NO_SHOW).count(),
+        }
+
+        # Appointments per department
+        departments = Department.query.order_by(Department.name.asc()).all()
+        dept_data = []
+        for d in departments:
+            count = (
+                Appointment.query.join(DoctorProfile)
+                .filter(DoctorProfile.department_id == d.id)
+                .count()
+            )
+            dept_data.append({
+                "department_id": d.id,
+                "department": d.name,
+                "appointment_count": count,
+                "doctor_count": d.doctors.count(),
+            })
+
+        # Check for unassigned / general appointments
+        unassigned_count = (
+            Appointment.query.join(DoctorProfile)
+            .filter(DoctorProfile.department_id.is_(None))
+            .count()
+        )
+        if unassigned_count > 0 or not dept_data:
+            dept_data.append({
+                "department_id": None,
+                "department": "General / Unassigned",
+                "appointment_count": unassigned_count,
+                "doctor_count": DoctorProfile.query.filter(DoctorProfile.department_id.is_(None)).count(),
+            })
+
+        return jsonify({
+            "status": "success",
+            "total_appointments": total_appointments,
+            "total_patients": total_patients,
+            "total_doctors": total_doctors,
+            "total_departments": total_departments,
+            "appointments_by_status": status_counts,
+            "appointments_by_department": dept_data,
+        })
 
     # ---- Admin: Search -------------------------------------------------
 

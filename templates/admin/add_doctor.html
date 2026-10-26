@@ -9,72 +9,91 @@
     </a>
 </div>
 
-<div class="card shadow">
-    <div class="card-body p-4">
-        <form method="POST" novalidate>
+<div class="card shadow border-0">
+    <div class="card-body p-4 p-md-5">
+        <form method="POST" class="needs-validation" novalidate>
             {{ form.hidden_tag() }}
 
-            <h5 class="text-muted mb-3"><i class="bi bi-person"></i> Account Details</h5>
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    {{ form.first_name.label(class="form-label") }}
-                    {{ form.first_name(class="form-control", placeholder="First name") }}
-                    {% for e in form.first_name.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+            <h5 class="text-primary mb-3"><i class="bi bi-person"></i> Account Credentials</h5>
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    {{ form.first_name.label(class="form-label fw-semibold") }}
+                    {{ form.first_name(class="form-control" + (" is-invalid" if form.first_name.errors else ""), placeholder="First name", required=True, maxlength="50") }}
+                    <div class="invalid-feedback">First name is required (max 50 chars).</div>
+                    {% for e in form.first_name.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
                 </div>
-                <div class="col-md-6 mb-3">
-                    {{ form.last_name.label(class="form-label") }}
-                    {{ form.last_name(class="form-control", placeholder="Last name") }}
-                    {% for e in form.last_name.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
-                </div>
-            </div>
-            <div class="row">
-                <div class="col-md-4 mb-3">
-                    {{ form.username.label(class="form-label") }}
-                    {{ form.username(class="form-control", placeholder="Username") }}
-                    {% for e in form.username.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
-                </div>
-                <div class="col-md-4 mb-3">
-                    {{ form.email.label(class="form-label") }}
-                    {{ form.email(class="form-control", placeholder="Email") }}
-                    {% for e in form.email.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
-                </div>
-                <div class="col-md-4 mb-3">
-                    {{ form.phone.label(class="form-label") }}
-                    {{ form.phone(class="form-control", placeholder="Phone (optional)") }}
-                    {% for e in form.phone.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                <div class="col-md-6">
+                    {{ form.last_name.label(class="form-label fw-semibold") }}
+                    {{ form.last_name(class="form-control" + (" is-invalid" if form.last_name.errors else ""), placeholder="Last name", required=True, maxlength="50") }}
+                    <div class="invalid-feedback">Last name is required (max 50 chars).</div>
+                    {% for e in form.last_name.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
                 </div>
             </div>
-            <div class="mb-3">
-                {{ form.password.label(class="form-label") }}
-                {{ form.password(class="form-control", placeholder="Minimum 6 characters") }}
-                {% for e in form.password.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+            <div class="row g-3 mb-3">
+                <div class="col-md-4">
+                    {{ form.username.label(class="form-label fw-semibold") }}
+                    <div class="input-group has-validation">
+                        <span class="input-group-text"><i class="bi bi-person"></i></span>
+                        {{ form.username(class="form-control" + (" is-invalid" if form.username.errors else ""), placeholder="Username", required=True, minlength="3", maxlength="80") }}
+                        <div class="invalid-feedback">Username must be 3-80 characters.</div>
+                    </div>
+                    {% for e in form.username.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+                </div>
+                <div class="col-md-4">
+                    {{ form.email.label(class="form-label fw-semibold") }}
+                    <div class="input-group has-validation">
+                        <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                        {{ form.email(class="form-control" + (" is-invalid" if form.email.errors else ""), placeholder="Email", required=True, type="email") }}
+                        <div class="invalid-feedback">Please enter a valid email address.</div>
+                    </div>
+                    {% for e in form.email.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+                </div>
+                <div class="col-md-4">
+                    {{ form.phone.label(class="form-label fw-semibold") }}
+                    <div class="input-group has-validation">
+                        <span class="input-group-text"><i class="bi bi-telephone"></i></span>
+                        {{ form.phone(class="form-control" + (" is-invalid" if form.phone.errors else ""), placeholder="Phone (optional)", maxlength="20") }}
+                        <div class="invalid-feedback">Phone cannot exceed 20 characters.</div>
+                    </div>
+                    {% for e in form.phone.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+                </div>
+            </div>
+            <div class="mb-4">
+                {{ form.password.label(class="form-label fw-semibold") }}
+                <div class="input-group has-validation">
+                    <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                    {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else ""), placeholder="Minimum 6 characters", required=True, minlength="6", type="password") }}
+                    <div class="invalid-feedback">Password must be at least 6 characters.</div>
+                </div>
+                {% for e in form.password.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
             </div>
 
-            <hr>
-            <h5 class="text-muted mb-3"><i class="bi bi-clipboard2-pulse"></i> Professional Details</h5>
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    {{ form.department_id.label(class="form-label") }}
+            <hr class="my-4">
+            <h5 class="text-success mb-3"><i class="bi bi-clipboard2-pulse"></i> Professional Profile</h5>
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    {{ form.department_id.label(class="form-label fw-semibold") }}
                     {{ form.department_id(class="form-select") }}
                 </div>
-                <div class="col-md-6 mb-3">
-                    {{ form.specialisation.label(class="form-label") }}
-                    {{ form.specialisation(class="form-control", placeholder="e.g. Cardiology") }}
+                <div class="col-md-6">
+                    {{ form.specialisation.label(class="form-label fw-semibold") }}
+                    {{ form.specialisation(class="form-control", placeholder="e.g. Cardiology, Pediatrics", maxlength="150") }}
                 </div>
             </div>
-            <div class="row">
-                <div class="col-md-6 mb-3">
-                    {{ form.qualification.label(class="form-label") }}
-                    {{ form.qualification(class="form-control", placeholder="e.g. MBBS, MD") }}
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    {{ form.qualification.label(class="form-label fw-semibold") }}
+                    {{ form.qualification(class="form-control", placeholder="e.g. MBBS, MD, FRCS", maxlength="200") }}
                 </div>
-                <div class="col-md-6 mb-3">
-                    {{ form.experience_years.label(class="form-label") }}
-                    {{ form.experience_years(class="form-control", placeholder="0") }}
+                <div class="col-md-6">
+                    {{ form.experience_years.label(class="form-label fw-semibold") }}
+                    {{ form.experience_years(class="form-control", placeholder="0", type="number", min="0", max="60") }}
+                    <div class="invalid-feedback">Experience must be between 0 and 60 years.</div>
                 </div>
             </div>
 
-            <div class="d-grid mt-3">
-                {{ form.submit(class="btn btn-success btn-lg") }}
+            <div class="d-grid">
+                {{ form.submit(class="btn btn-success btn-lg shadow-sm") }}
             </div>
         </form>
     </div>

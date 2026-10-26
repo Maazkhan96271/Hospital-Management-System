@@ -20,15 +20,16 @@
                 <h5 class="mb-0 fw-semibold"><i class="bi bi-pencil-square"></i> Appointment Details</h5>
             </div>
             <div class="card-body p-4">
-                <form method="POST" novalidate>
+                <form method="POST" class="needs-validation" novalidate>
                     {{ form.hidden_tag() }}
 
                     <!-- Doctor Selection -->
                     <div class="mb-3">
                         {{ form.doctor_id.label(class="form-label fw-bold") }}
-                        <div class="input-group">
+                        <div class="input-group has-validation">
                             <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
-                            {{ form.doctor_id(class="form-select" + (" is-invalid" if form.doctor_id.errors else ""), id="doctorSelect") }}
+                            {{ form.doctor_id(class="form-select" + (" is-invalid" if form.doctor_id.errors else ""), id="doctorSelect", required=True) }}
+                            <div class="invalid-feedback">Please select an attending doctor.</div>
                         </div>
                         {% for error in form.doctor_id.errors %}
                             <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle"></i> {{ error }}</div>
@@ -39,9 +40,10 @@
                         <!-- Date Picker -->
                         <div class="col-md-6">
                             {{ form.appointment_date.label(class="form-label fw-bold") }}
-                            <div class="input-group">
+                            <div class="input-group has-validation">
                                 <span class="input-group-text"><i class="bi bi-calendar-date"></i></span>
-                                {{ form.appointment_date(class="form-control" + (" is-invalid" if form.appointment_date.errors else ""), type="date") }}
+                                {{ form.appointment_date(class="form-control" + (" is-invalid" if form.appointment_date.errors else ""), type="date", required=True, **{"data-future-only": "true"}) }}
+                                <div class="invalid-feedback">Please select a valid future date.</div>
                             </div>
                             <small class="text-muted">Must be today or in the future.</small>
                             {% for error in form.appointment_date.errors %}
@@ -52,9 +54,10 @@
                         <!-- Time Picker -->
                         <div class="col-md-6">
                             {{ form.appointment_time.label(class="form-label fw-bold") }}
-                            <div class="input-group">
+                            <div class="input-group has-validation">
                                 <span class="input-group-text"><i class="bi bi-clock"></i></span>
-                                {{ form.appointment_time(class="form-control" + (" is-invalid" if form.appointment_time.errors else ""), type="time") }}
+                                {{ form.appointment_time(class="form-control" + (" is-invalid" if form.appointment_time.errors else ""), type="time", required=True) }}
+                                <div class="invalid-feedback">Please select a consultation time slot.</div>
                             </div>
                             <small class="text-muted">Consultation slot time.</small>
                             {% for error in form.appointment_time.errors %}
@@ -66,7 +69,8 @@
                     <!-- Reason for Visit -->
                     <div class="mb-4">
                         {{ form.reason.label(class="form-label fw-bold") }}
-                        {{ form.reason(class="form-control" + (" is-invalid" if form.reason.errors else ""), rows=3, placeholder="Describe symptoms or purpose of your visit (optional)...") }}
+                        {{ form.reason(class="form-control" + (" is-invalid" if form.reason.errors else ""), rows=3, maxlength="500", placeholder="Describe symptoms or purpose of your visit (optional)...") }}
+                        <div class="invalid-feedback">Reason cannot exceed 500 characters.</div>
                         {% for error in form.reason.errors %}
                             <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle"></i> {{ error }}</div>
                         {% endfor %}

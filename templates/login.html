@@ -4,46 +4,54 @@
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-md-5">
-        <div class="card shadow">
+        <div class="card shadow border-0">
             <div class="card-body p-4">
-                <h3 class="card-title text-center mb-4">
+                <h3 class="card-title text-center mb-2">
                     <i class="bi bi-box-arrow-in-right text-primary"></i> Login
                 </h3>
-                <p class="text-center text-muted mb-4">
+                <p class="text-center text-muted mb-4 small">
                     Sign in as <strong>Admin</strong>, <strong>Doctor</strong>, or <strong>Patient</strong>
                 </p>
-                <form method="POST" novalidate>
+                <form method="POST" class="needs-validation" novalidate>
                     {{ form.hidden_tag() }}
 
                     <div class="mb-3">
-                        {{ form.username.label(class="form-label") }}
-                        {{ form.username(class="form-control", placeholder="Enter username") }}
+                        {{ form.username.label(class="form-label fw-semibold") }}
+                        <div class="input-group has-validation">
+                            <span class="input-group-text"><i class="bi bi-person"></i></span>
+                            {{ form.username(class="form-control" + (" is-invalid" if form.username.errors else ""), placeholder="Enter username", required=True, minlength="3", maxlength="80", autocomplete="username") }}
+                            <div class="invalid-feedback">Please enter your username (at least 3 characters).</div>
+                        </div>
                         {% for error in form.username.errors %}
-                            <div class="text-danger small">{{ error }}</div>
+                            <div class="text-danger small mt-1">{{ error }}</div>
                         {% endfor %}
                     </div>
 
                     <div class="mb-3">
-                        {{ form.password.label(class="form-label") }}
-                        {{ form.password(class="form-control", placeholder="Enter password") }}
+                        {{ form.password.label(class="form-label fw-semibold") }}
+                        <div class="input-group has-validation">
+                            <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                            {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else ""), placeholder="Enter password", required=True, autocomplete="current-password") }}
+                            <div class="invalid-feedback">Please enter your password.</div>
+                        </div>
                         {% for error in form.password.errors %}
-                            <div class="text-danger small">{{ error }}</div>
+                            <div class="text-danger small mt-1">{{ error }}</div>
                         {% endfor %}
                     </div>
 
                     <div class="mb-3 form-check">
                         {{ form.remember_me(class="form-check-input") }}
-                        {{ form.remember_me.label(class="form-check-label") }}
+                        {{ form.remember_me.label(class="form-check-label text-muted small") }}
                     </div>
 
                     <div class="d-grid">
-                        {{ form.submit(class="btn btn-primary") }}
+                        {{ form.submit(class="btn btn-primary btn-lg shadow-sm") }}
                     </div>
                 </form>
                 <hr>
-                <p class="text-center mb-0">
+                <p class="text-center mb-0 small text-muted">
                     Don't have an account?
-                    <a href="{{ url_for('register') }}">Register here</a>
+                    <a href="{{ url_for('register') }}" class="text-primary fw-semibold">Register here</a>
                 </p>
             </div>
         </div>

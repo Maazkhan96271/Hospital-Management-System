@@ -9,9 +9,10 @@
     </a>
 </div>
 
-<div class="card shadow">
-    <div class="card-body p-4">
-        <form method="POST" novalidate>
+<div class="card shadow border-0">
+    <div class="card-body p-4 p-md-5">
+        <p class="text-muted mb-4">Toggle availability for each day and set your consulting hours. Client and server validation will ensure accurate patient booking slots.</p>
+        <form method="POST" class="needs-validation" novalidate>
             {{ form.hidden_tag() }}
 
             <div class="table-responsive">
@@ -26,16 +27,18 @@
                     </thead>
                     <tbody>
                         {% for abbr, label in days %}
-                        <tr>
+                        <tr data-day="{{ abbr }}">
                             <td><strong>{{ label }}</strong></td>
                             <td class="text-center">
-                                {{ form[abbr ~ '_available'](class="form-check-input") }}
+                                {{ form[abbr ~ '_available'](class="form-check-input fs-5") }}
                             </td>
                             <td>
                                 {{ form[abbr ~ '_start'](class="form-control", type="time") }}
+                                <div class="invalid-feedback">Required if available.</div>
                             </td>
                             <td>
                                 {{ form[abbr ~ '_end'](class="form-control", type="time") }}
+                                <div class="invalid-feedback">Must be after start time.</div>
                             </td>
                         </tr>
                         {% endfor %}
@@ -44,7 +47,7 @@
             </div>
 
             <div class="d-grid mt-4">
-                {{ form.submit(class="btn btn-primary btn-lg") }}
+                {{ form.submit(class="btn btn-primary btn-lg shadow-sm") }}
             </div>
         </form>
     </div>

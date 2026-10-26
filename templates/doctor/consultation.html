@@ -66,13 +66,14 @@
                     <i class="bi bi-info-circle"></i>
                     Submitting this form will <strong>mark the appointment as Completed</strong> and save the treatment record.
                 </div>
-                <form method="POST" novalidate>
+                <form method="POST" class="needs-validation" novalidate>
                     {{ form.hidden_tag() }}
 
                     <div class="mb-3">
                         {{ form.diagnosis.label(class="form-label fw-bold") }}
-                        {{ form.diagnosis(class="form-control", rows=3, placeholder="Enter diagnosis…") }}
-                        {% for e in form.diagnosis.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                        {{ form.diagnosis(class="form-control" + (" is-invalid" if form.diagnosis.errors else ""), rows=3, placeholder="Enter clinical diagnosis…", required=True) }}
+                        <div class="invalid-feedback">Diagnosis is required to complete consultation.</div>
+                        {% for e in form.diagnosis.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
                     </div>
 
                     <div class="mb-3">

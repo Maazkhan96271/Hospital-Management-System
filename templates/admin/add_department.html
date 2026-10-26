@@ -11,24 +11,28 @@
 
 <div class="row justify-content-center">
     <div class="col-md-6">
-        <div class="card shadow">
-            <div class="card-body p-4">
-                <form method="POST" novalidate>
+        <div class="card shadow border-0">
+            <div class="card-body p-4 p-md-5">
+                <form method="POST" class="needs-validation" novalidate>
                     {{ form.hidden_tag() }}
 
                     <div class="mb-3">
-                        {{ form.name.label(class="form-label") }}
-                        {{ form.name(class="form-control", placeholder="e.g. Cardiology") }}
-                        {% for e in form.name.errors %}<div class="text-danger small">{{ e }}</div>{% endfor %}
+                        {{ form.name.label(class="form-label fw-semibold") }}
+                        <div class="input-group has-validation">
+                            <span class="input-group-text"><i class="bi bi-building"></i></span>
+                            {{ form.name(class="form-control" + (" is-invalid" if form.name.errors else ""), placeholder="e.g. Cardiology, Neurology", required=True, maxlength="100") }}
+                            <div class="invalid-feedback">Department name is required (max 100 characters).</div>
+                        </div>
+                        {% for e in form.name.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
                     </div>
 
-                    <div class="mb-3">
-                        {{ form.description.label(class="form-label") }}
-                        {{ form.description(class="form-control", rows=3, placeholder="Brief description…") }}
+                    <div class="mb-4">
+                        {{ form.description.label(class="form-label fw-semibold") }}
+                        {{ form.description(class="form-control", rows=3, placeholder="Brief description of specialized services…") }}
                     </div>
 
                     <div class="d-grid">
-                        {{ form.submit(class="btn btn-primary") }}
+                        {{ form.submit(class="btn btn-primary btn-lg shadow-sm") }}
                     </div>
                 </form>
             </div>
