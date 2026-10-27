@@ -55,5 +55,14 @@ class InvoiceOut(InvoiceBase):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     items: List[InvoiceItemOut] = Field(default_factory=list)
+    patient_name: Optional[str] = None
+    patient_email: Optional[str] = None
+    doctor_name: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class RecordPaymentRequest(BaseModel):
+    payment_method: str = Field("Cash", description="Cash, Credit Card, UPI, Debit Card, Insurance, Online")
+    amount_paid: Optional[float] = Field(None, ge=0.0, description="Amount received. If omitted, marks full balance paid.")
+    notes: Optional[str] = Field(None, description="Optional cashier / transaction reference notes")

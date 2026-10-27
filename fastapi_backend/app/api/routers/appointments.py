@@ -520,3 +520,186 @@ async def update_appointment_status(
         .filter(Appointment.id == appointment.id)
     )
     return refetched.scalar_one()
+
+
+@router.post(
+    "/{appointment_id}/check-in",
+    summary="Check-in patient, set status to 'Waiting' and generate Queue Token Number",
+)
+async def check_in_appointment(
+    appointment_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Check-in patient for appointment:
+    1. Changes status from 'Booked' to 'Waiting'.
+    2. Generates sequential Queue Token Number for the doctor's queue today.
+    3. Records token in appointment notes.
+    """
+    stmt = (
+        select(Appointment)
+        .options(
+            selectinload(Appointment.patient),
+            selectinload(Appointment.doctor).selectinload(DoctorProfile.user),
+            selectinload(Appointment.doctor).selectinload(DoctorProfile.department),
+        )
+        .filter(Appointment.id == appointment_id)
+    )
+    result = await db.execute(stmt)
+    appointment = result.scalar_one_or_none()
+
+    if not appointment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Appointment #{appointment_id} not found.",
+        )
+
+    # Calculate token sequence number for this doctor today
+    day_start = appointment.appointment_datetime.replace(hour=0, minute=0, second=0, microsecond=0)
+    day_end = appointment.appointment_datetime.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+    count_stmt = (
+        select(Appointment)
+        .filter(
+            Appointment.doctor_id == appointment.doctor_id,
+            Appointment.appointment_datetime >= day_start,
+            Appointment.appointment_datetime <= day_end,
+            Appointment.status.in_([
+                AppointmentStatus.WAITING.value,
+                AppointmentStatus.IN_PROGRESS.value,
+                AppointmentStatus.COMPLETED.value,
+            ]),
+        )
+    )
+    res_count = await db.execute(count_stmt)
+    existing_checked_in = list(res_count.scalars().all())
+
+    # Sequential token
+    token_num = len(existing_checked_in) + 1
+    dept_prefix = (
+        appointment.doctor.department.name[:2].upper()
+        if appointment.doctor and appointment.doctor.department
+        else "MD"
+    )
+    token_code = f"{dept_prefix}-{appointment.doctor_id:02d}-{token_num:03d}"
+
+    appointment.status = AppointmentStatus.WAITING.value
+    token_note = f"[Queue Token: {token_code}]"
+    if not appointment.notes or token_code not in appointment.notes:
+        appointment.notes = ((appointment.notes or "") + f" {token_note}").strip()
+
+    await db.commit()
+
+    patient_name = (
+        f"{appointment.patient.first_name} {appointment.patient.last_name}".strip()
+        if appointment.patient
+        else f"Patient #{appointment.patient_id}"
+    )
+    doctor_name = "Attending Physician"
+    if appointment.doctor and hasattr(appointment.doctor, "user") and appointment.doctor.user:
+        u = appointment.doctor.user
+        doctor_name = f"Dr. {u.first_name} {u.last_name}"
+
+    return {
+        "status": "success",
+        "appointment_id": appointment.id,
+        "token_number": token_code,
+        "queue_status": "Waiting",
+        "patient_name": patient_name,
+        "doctor_name": doctor_name,
+        "appointment_time": appointment.appointment_datetime.strftime("%H:%M"),
+        "notes": appointment.notes,
+    }
+
+
+@router.get(
+    "/queue/live",
+    summary="Get today's live reception queue grouped by Doctor",
+)
+async def get_live_queue(
+    date_str: Optional[str] = Query(None, alias="date", description="Date in YYYY-MM-DD format (defaults to today)"),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Retrieve live queue appointments for today, grouped by Doctor.
+    Enables receptionists to monitor waiting rooms and check-in patients.
+    """
+    if date_str:
+        target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+    else:
+        target_date = dt_date.today()
+
+    day_start = datetime.combine(target_date, dt_time.min)
+    day_end = datetime.combine(target_date, dt_time.max)
+
+    stmt = (
+        select(Appointment)
+        .options(
+            selectinload(Appointment.patient),
+            selectinload(Appointment.doctor).selectinload(DoctorProfile.user),
+            selectinload(Appointment.doctor).selectinload(DoctorProfile.department),
+        )
+        .filter(
+            Appointment.appointment_datetime >= day_start,
+            Appointment.appointment_datetime <= day_end,
+        )
+        .order_by(Appointment.appointment_datetime.asc())
+    )
+    result = await db.execute(stmt)
+    appts = list(result.scalars().all())
+
+    # Group by doctor
+    doctors_map = {}
+    for a in appts:
+        d_id = a.doctor_id
+        if d_id not in doctors_map:
+            d_name = "Attending Physician"
+            dept_name = "General Medicine"
+            if a.doctor:
+                if hasattr(a.doctor, "user") and a.doctor.user:
+                    d_name = f"Dr. {a.doctor.user.first_name} {a.doctor.user.last_name}"
+                if a.doctor.department:
+                    dept_name = a.doctor.department.name
+
+            doctors_map[d_id] = {
+                "doctor_id": d_id,
+                "doctor_name": d_name,
+                "department": dept_name,
+                "appointments": [],
+                "waiting_count": 0,
+                "booked_count": 0,
+                "in_progress_count": 0,
+                "completed_count": 0,
+            }
+
+        token_num = None
+        if a.notes and "Queue Token: " in a.notes:
+            try:
+                token_num = a.notes.split("Queue Token: ")[1].split("]")[0]
+            except Exception:
+                pass
+
+        p_name = f"{a.patient.first_name} {a.patient.last_name}".strip() if a.patient else f"Patient #{a.patient_id}"
+
+        item = {
+            "id": a.id,
+            "patient_id": a.patient_id,
+            "patient_name": p_name,
+            "patient_email": a.patient.email if a.patient else None,
+            "time": a.appointment_datetime.strftime("%H:%M"),
+            "status": a.status,
+            "token_number": token_num,
+            "notes": a.notes,
+        }
+        doctors_map[d_id]["appointments"].append(item)
+
+        if a.status == AppointmentStatus.WAITING.value:
+            doctors_map[d_id]["waiting_count"] += 1
+        elif a.status == AppointmentStatus.BOOKED.value:
+            doctors_map[d_id]["booked_count"] += 1
+        elif a.status == AppointmentStatus.IN_PROGRESS.value:
+            doctors_map[d_id]["in_progress_count"] += 1
+        elif a.status == AppointmentStatus.COMPLETED.value:
+            doctors_map[d_id]["completed_count"] += 1
+
+    return list(doctors_map.values())

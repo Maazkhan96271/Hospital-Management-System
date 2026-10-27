@@ -28,6 +28,8 @@ import {
   Search,
   Pill,
   FlaskConical,
+  UserCheck,
+  Receipt,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -72,6 +74,8 @@ export function Sidebar({ onOpenSearch, canSearch }: SidebarProps) {
           section: "Administration",
           items: [
             { title: "Admin Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
+            { title: "Live Reception Queue", href: "/admin/reception", icon: UserCheck, badge: "Live" },
+            { title: "Billing & Invoicing", href: "/admin/billing", icon: Receipt },
             { title: "Doctor Directory", href: "/admin/doctors", icon: Stethoscope },
             { title: "Manage Patients", href: "/admin/patients", icon: Users },
             { title: "All Appointments", href: "/admin/appointments", icon: CalendarCheck },

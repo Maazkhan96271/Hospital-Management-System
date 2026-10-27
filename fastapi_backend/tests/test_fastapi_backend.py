@@ -526,6 +526,55 @@ async def run_all_tests():
         assert any(o["status"] == "Completed" and "Hemoglobin" in (o["results"] or "") for o in patient_orders)
         print("✅ Laboratory Portal results successfully populated and verified on Patient Lab records!")
 
+        # ==============================================================================
+        # 15. Test Queue Management & Billing / PDF Receipt Endpoints
+        # ==============================================================================
+        # 15.1 Check-in appointment: transitions to 'Waiting' and generates Token Number
+        checkin_res = await client.post(f"/api/appointments/{appointment_id}/check-in")
+        assert checkin_res.status_code == 200
+        checkin_data = checkin_res.json()
+        assert checkin_data["status"] == "success"
+        assert checkin_data["queue_status"] == "Waiting"
+        assert "token_number" in checkin_data
+        assert checkin_data["token_number"] is not None
+        print(f"✅ Check-in generated queue token: {checkin_data['token_number']}")
+
+        # 15.2 Live Reception Queue grouped by doctor
+        queue_res = await client.get(f"/api/appointments/queue/live?date={monday_str}")
+        assert queue_res.status_code == 200
+        queue_groups = queue_res.json()
+        assert len(queue_groups) >= 1
+        assert any(d["doctor_id"] == doc_profile.id for d in queue_groups)
+        print("✅ Live reception queue successfully grouped appointments by Doctor.")
+
+        # 15.3 List Invoices
+        inv_list_res = await client.get("/api/invoices")
+        assert inv_list_res.status_code == 200
+        invoices_list = inv_list_res.json()
+        assert len(invoices_list) >= 1
+
+        target_inv_id = invoice.id
+
+        # 15.4 Record Payment (settles invoice to 'Paid')
+        pay_res = await client.post(
+            f"/api/invoices/{target_inv_id}/pay",
+            json={"payment_method": "Credit Card", "notes": "POS Auth Ref #99281"},
+        )
+        assert pay_res.status_code == 200
+        paid_inv = pay_res.json()
+        assert paid_inv["payment_status"] == "Paid"
+        assert paid_inv["payment_method"] == "Credit Card"
+        assert paid_inv["paid_amount"] == 860.0
+        print("✅ Record payment successfully marked invoice as Paid.")
+
+        # 15.5 Download official branded ReportLab PDF receipt
+        pdf_res = await client.get(f"/api/invoices/{target_inv_id}/receipt.pdf")
+        assert pdf_res.status_code == 200
+        assert pdf_res.headers["content-type"] == "application/pdf"
+        assert len(pdf_res.content) > 1000  # Valid non-empty PDF binary
+        assert pdf_res.content.startswith(b"%PDF")
+        print(f"✅ Official branded PDF receipt generated ({len(pdf_res.content)} bytes).")
+
     print("\n🎉 ALL APPOINTMENT BOOKING ENGINE TESTS PASSED CLEANLY!")
 
 

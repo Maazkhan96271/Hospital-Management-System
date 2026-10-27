@@ -7,6 +7,7 @@ from flask_app.extensions import db
 class AppointmentStatus:
     """Standard appointment statuses."""
     SCHEDULED = "scheduled"
+    WAITING = "waiting"
     COMPLETED = "completed"
     CANCELLED = "cancelled"
     NO_SHOW = "no_show"

@@ -28,6 +28,8 @@ if TYPE_CHECKING:
 class AppointmentStatus(str, Enum):
     """Appointment lifecycle statuses."""
     BOOKED = "Booked"
+    WAITING = "Waiting"
+    IN_PROGRESS = "In-Progress"
     COMPLETED = "Completed"
     CANCELLED = "Cancelled"
 
