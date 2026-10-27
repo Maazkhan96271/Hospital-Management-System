@@ -7,6 +7,9 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from app.models.appointment import AppointmentStatus
 from app.schemas.user import UserOut
 from app.schemas.treatment import TreatmentRecordOut
+from app.schemas.vitals import VitalsOut
+from app.schemas.lab import LabOrderOut
+from app.schemas.billing import InvoiceOut
 
 
 class AppointmentBase(BaseModel):
@@ -49,11 +52,36 @@ class AppointmentStatusUpdate(BaseModel):
     status: AppointmentStatus
 
 
+class VitalsInput(BaseModel):
+    height: Optional[float] = None
+    weight: Optional[float] = None
+    bmi: Optional[float] = None
+    blood_pressure: Optional[str] = None
+    temperature: Optional[float] = None
+    pulse: Optional[int] = None
+    respiratory_rate: Optional[int] = None
+    oxygen_saturation: Optional[float] = None
+    notes: Optional[str] = None
+
+
+class PrescribedMedicineInput(BaseModel):
+    pharmacy_item_id: Optional[int] = None
+    name: str
+    dosage: str = "1-0-1 after meals"
+    duration: Optional[str] = "5 days"
+    quantity: int = 1
+    unit_price: Optional[float] = 0.0
+
+
 class CompleteAppointmentRequest(BaseModel):
-    """Payload for completing an appointment while attaching a TreatmentRecord."""
+    """Payload for completing an appointment with EMR Vitals, Prescriptions, Lab Orders, and Invoicing."""
     diagnosis: str = Field(..., min_length=2, description="Clinical diagnosis for the consultation")
     prescription: List[str] = Field(default_factory=list, description="Prescription medications array")
     detailed_notes: Optional[str] = Field(None, description="Detailed physician consultation notes")
+    vitals: Optional[VitalsInput] = None
+    medicines: Optional[List[PrescribedMedicineInput]] = Field(default_factory=list)
+    lab_test_ids: Optional[List[int]] = Field(default_factory=list)
+    consultation_fee: Optional[float] = 500.0
 
 
 class AppointmentOut(BaseModel):
@@ -68,6 +96,13 @@ class AppointmentOut(BaseModel):
     updated_at: datetime
     patient: Optional[UserOut] = None
     treatment_record: Optional[TreatmentRecordOut] = None
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AppointmentDetailOut(AppointmentOut):
+    vitals: Optional[VitalsOut] = None
+    lab_orders: Optional[List[LabOrderOut]] = None
+    invoices: Optional[List[InvoiceOut]] = None
     model_config = ConfigDict(from_attributes=True)
 
 

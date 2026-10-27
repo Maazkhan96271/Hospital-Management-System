@@ -13,6 +13,10 @@ from app.models.user import User
 from app.models.doctor_profile import DoctorProfile
 from app.models.appointment import Appointment, AppointmentStatus
 from app.models.treatment_record import TreatmentRecord
+from app.models.vitals import Vitals
+from app.models.pharmacy import PharmacyItem
+from app.models.lab import LabTest, LabOrder, LabOrderStatus
+from app.models.billing import Invoice, InvoiceItem, PaymentStatus, PaymentMethod
 from app.services.email_service import send_appointment_confirmation_email
 from app.schemas.appointment import (
     AppointmentCreate,
@@ -206,12 +210,15 @@ async def complete_appointment_with_treatment(
             detail="Only attending doctors (or administrators) can complete appointments.",
         )
 
-    # Fetch appointment
+    # Fetch appointment with related EMR entities
     result = await db.execute(
         select(Appointment)
         .options(
             selectinload(Appointment.patient).selectinload(User.role),
             selectinload(Appointment.treatment_record),
+            selectinload(Appointment.vitals),
+            selectinload(Appointment.lab_orders),
+            selectinload(Appointment.invoices).selectinload(Invoice.items),
         )
         .filter(Appointment.id == appointment_id)
     )
@@ -237,26 +244,119 @@ async def complete_appointment_with_treatment(
     # 1. Update appointment status to Completed
     appointment.status = AppointmentStatus.COMPLETED.value
 
-    # 2. Attach or update TreatmentRecord
+    # 2. Consolidate and attach TreatmentRecord
+    final_prescriptions = list(treatment_data.prescription or [])
+    if treatment_data.medicines:
+        for med in treatment_data.medicines:
+            line = f"{med.name} - {med.dosage} ({med.duration or '5 days'})"
+            if line not in final_prescriptions:
+                final_prescriptions.append(line)
+
     if appointment.treatment_record:
         treatment = appointment.treatment_record
         treatment.diagnosis = treatment_data.diagnosis
-        treatment.prescription = treatment_data.prescription
+        treatment.prescription = final_prescriptions
         treatment.detailed_notes = treatment_data.detailed_notes
     else:
         treatment = TreatmentRecord(
             appointment_id=appointment.id,
             diagnosis=treatment_data.diagnosis,
-            prescription=treatment_data.prescription,
+            prescription=final_prescriptions,
             detailed_notes=treatment_data.detailed_notes,
         )
         appointment.treatment_record = treatment
         db.add(treatment)
 
+    # 3. Save or update Vitals if provided
+    if treatment_data.vitals:
+        v_data = treatment_data.vitals
+        if appointment.vitals:
+            vitals = appointment.vitals
+            vitals.height = v_data.height
+            vitals.weight = v_data.weight
+            vitals.blood_pressure = v_data.blood_pressure
+            vitals.temperature = v_data.temperature
+            vitals.pulse = v_data.pulse
+            vitals.respiratory_rate = v_data.respiratory_rate
+            vitals.oxygen_saturation = v_data.oxygen_saturation
+            vitals.notes = v_data.notes
+            vitals.calculate_bmi()
+        else:
+            vitals = Vitals(
+                appointment_id=appointment.id,
+                height=v_data.height,
+                weight=v_data.weight,
+                blood_pressure=v_data.blood_pressure,
+                temperature=v_data.temperature,
+                pulse=v_data.pulse,
+                respiratory_rate=v_data.respiratory_rate,
+                oxygen_saturation=v_data.oxygen_saturation,
+                notes=v_data.notes,
+            )
+            vitals.calculate_bmi()
+            appointment.vitals = vitals
+            db.add(vitals)
+
+    # 4. Create pending LabOrders for selected lab tests
+    if treatment_data.lab_test_ids:
+        for test_id in treatment_data.lab_test_ids:
+            lab_order = LabOrder(
+                appointment_id=appointment.id,
+                lab_test_id=test_id,
+                status=LabOrderStatus.PENDING.value,
+            )
+            db.add(lab_order)
+
+    # 5. Automatically generate an itemized Invoice
+    inv_number = f"INV-{datetime.utcnow().strftime('%Y%m%d')}-{appointment.id:04d}"
+    invoice = Invoice(
+        invoice_number=inv_number,
+        patient_id=appointment.patient_id,
+        appointment_id=appointment.id,
+        payment_status=PaymentStatus.UNPAID.value,
+        payment_method="Pending Payment",
+        paid_amount=0.0,
+        total_amount=0.0,
+    )
+
+    # 5.1 Consultation Fee line item
+    fee = treatment_data.consultation_fee if treatment_data.consultation_fee is not None else 500.0
+    invoice.add_item(description="Physician Consultation Fee", quantity=1, unit_price=fee)
+
+    # 5.2 Prescribed Medicines line items & inventory deduction
+    if treatment_data.medicines:
+        for med in treatment_data.medicines:
+            unit_price = med.unit_price or 0.0
+            if med.pharmacy_item_id:
+                pharm_item = await db.get(PharmacyItem, med.pharmacy_item_id)
+                if pharm_item:
+                    unit_price = pharm_item.price_per_unit
+                    # Deduct inventory stock safely
+                    if pharm_item.stock_quantity >= med.quantity:
+                        pharm_item.stock_quantity -= med.quantity
+            invoice.add_item(
+                description=f"Medication: {med.name} ({med.dosage})",
+                quantity=med.quantity,
+                unit_price=unit_price,
+            )
+
+    # 5.3 Ordered Lab Tests line items
+    if treatment_data.lab_test_ids:
+        for test_id in treatment_data.lab_test_ids:
+            lab_test = await db.get(LabTest, test_id)
+            if lab_test:
+                invoice.add_item(
+                    description=f"Lab Diagnostic: {lab_test.name}",
+                    quantity=1,
+                    unit_price=lab_test.cost,
+                )
+
+    db.add(invoice)
+
     await db.flush()
     await db.commit()
     await db.refresh(treatment)
-    await db.refresh(appointment, ["updated_at", "status"])
+    await db.refresh(appointment)
     return AppointmentOut.model_validate(appointment)
 
 

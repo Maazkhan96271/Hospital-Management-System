@@ -10,6 +10,16 @@ from flask_app.models import (
     DoctorProfile,
     Appointment,
     AppointmentStatus,
+    Treatment,
+    Vitals,
+    PharmacyItem,
+    LabTest,
+    LabOrder,
+    LabOrderStatus,
+    Invoice,
+    InvoiceItem,
+    PaymentStatus,
+    PaymentMethod,
 )
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")
@@ -197,4 +207,145 @@ def api_stats():
         "total_departments": total_departments,
         "appointments_by_status": status_counts,
         "appointments_by_department": dept_data,
+    })
+
+
+@api_bp.route("/pharmacy/search", methods=["GET"])
+@api_bp.route("/pharmacy/items", methods=["GET"])
+def api_pharmacy_search():
+    """Query pharmacy medication inventory by name, category, or sku."""
+    q = request.args.get("q", "").strip()
+    query = PharmacyItem.query
+    if q:
+        query = query.filter(
+            (PharmacyItem.name.ilike(f"%{q}%"))
+            | (PharmacyItem.category.ilike(f"%{q}%"))
+            | (PharmacyItem.sku.ilike(f"%{q}%"))
+        )
+    items = query.order_by(PharmacyItem.name.asc()).limit(50).all()
+    return jsonify([item.to_dict() for item in items])
+
+
+@api_bp.route("/lab/tests", methods=["GET"])
+def api_lab_tests():
+    """List available diagnostic lab tests."""
+    tests = LabTest.query.order_by(LabTest.category.asc(), LabTest.name.asc()).all()
+    return jsonify([test.to_dict() for test in tests])
+
+
+@api_bp.route("/consultations/<int:appointment_id>/complete", methods=["POST"])
+def api_complete_consultation(appointment_id: int):
+    """
+    Complete clinical consultation:
+    Saves TreatmentRecord, Vitals, pending LabOrders, and auto-generates itemized Invoice.
+    """
+    from flask_app.extensions import db
+
+    appointment = Appointment.query.get_or_404(appointment_id)
+    data = request.get_json() or {}
+
+    diagnosis = data.get("diagnosis", "").strip()
+    if not diagnosis:
+        return jsonify({"status": "error", "message": "Clinical diagnosis is required"}), 400
+
+    # 1. Update appointment status
+    appointment.status = AppointmentStatus.COMPLETED
+
+    # 2. Save or update Treatment record
+    prescriptions = data.get("prescription") or []
+    medicines = data.get("medicines") or []
+    for med in medicines:
+        m_line = f"{med.get('name')} - {med.get('dosage')} ({med.get('duration', '5 days')})"
+        if m_line not in prescriptions:
+            prescriptions.append(m_line)
+
+    detailed_notes = data.get("detailed_notes", "")
+    if appointment.treatment:
+        appointment.treatment.diagnosis = diagnosis
+        appointment.treatment.prescription = "\n".join(prescriptions) if isinstance(prescriptions, list) else str(prescriptions)
+        appointment.treatment.notes = detailed_notes
+    else:
+        treatment = Treatment(
+            appointment_id=appointment.id,
+            diagnosis=diagnosis,
+            prescription="\n".join(prescriptions) if isinstance(prescriptions, list) else str(prescriptions),
+            notes=detailed_notes,
+        )
+        db.session.add(treatment)
+
+    # 3. Save Vitals
+    vitals_data = data.get("vitals")
+    if vitals_data:
+        vitals = appointment.vitals
+        if not vitals:
+            vitals = Vitals(appointment_id=appointment.id)
+            db.session.add(vitals)
+        vitals.height = vitals_data.get("height")
+        vitals.weight = vitals_data.get("weight")
+        vitals.blood_pressure = vitals_data.get("blood_pressure")
+        vitals.temperature = vitals_data.get("temperature")
+        vitals.pulse = vitals_data.get("pulse")
+        vitals.respiratory_rate = vitals_data.get("respiratory_rate")
+        vitals.oxygen_saturation = vitals_data.get("oxygen_saturation")
+        vitals.notes = vitals_data.get("notes")
+        vitals.calculate_bmi()
+
+    # 4. Save Lab Orders
+    lab_test_ids = data.get("lab_test_ids") or []
+    for test_id in lab_test_ids:
+        order = LabOrder(
+            appointment_id=appointment.id,
+            lab_test_id=test_id,
+            status=LabOrderStatus.PENDING,
+        )
+        db.session.add(order)
+
+    # 5. Automatically Generate Itemized Invoice
+    inv_number = f"INV-{datetime.utcnow().strftime('%Y%m%d')}-{appointment.id:04d}"
+    invoice = Invoice(
+        invoice_number=inv_number,
+        patient_id=appointment.patient_id,
+        appointment_id=appointment.id,
+        payment_status=PaymentStatus.UNPAID,
+        payment_method="Pending Payment",
+        paid_amount=0.0,
+        total_amount=0.0,
+    )
+    fee = float(data.get("consultation_fee") or 500.0)
+    invoice.add_item(description="Physician Consultation Fee", quantity=1, unit_price=fee)
+
+    for med in medicines:
+        qty = int(med.get("quantity") or 1)
+        price = float(med.get("unit_price") or 0.0)
+        p_id = med.get("pharmacy_item_id")
+        if p_id:
+            p_item = PharmacyItem.query.get(p_id)
+            if p_item:
+                price = float(p_item.price_per_unit)
+                if p_item.stock_quantity >= qty:
+                    p_item.stock_quantity -= qty
+        invoice.add_item(
+            description=f"Medication: {med.get('name')} ({med.get('dosage')})",
+            quantity=qty,
+            unit_price=price,
+        )
+
+    for test_id in lab_test_ids:
+        lab_test = LabTest.query.get(test_id)
+        if lab_test:
+            invoice.add_item(
+                description=f"Lab Diagnostic: {lab_test.name}",
+                quantity=1,
+                unit_price=float(lab_test.cost),
+            )
+
+    db.session.add(invoice)
+    db.session.commit()
+
+    return jsonify({
+        "status": "success",
+        "message": "Consultation completed and EMR record finalized.",
+        "appointment_id": appointment.id,
+        "invoice_number": invoice.invoice_number,
+        "total_billed": invoice.total_amount,
     })
