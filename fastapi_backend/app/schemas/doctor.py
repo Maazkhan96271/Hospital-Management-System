@@ -1,7 +1,7 @@
 """Doctor profile Pydantic schemas."""
 
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.user import UserOut
@@ -52,3 +52,17 @@ class DoctorProfileOut(DoctorProfileBase):
     user: Optional[UserOut] = None
     department: Optional[DepartmentOut] = None
     model_config = ConfigDict(from_attributes=True)
+
+
+class DoctorSlotOut(BaseModel):
+    time: str
+    datetime: str
+    available: bool = True
+
+
+class DoctorSlotsResponse(BaseModel):
+    doctor_id: int
+    date: str
+    day_of_week: str
+    working_hours: Optional[Dict[str, str]] = None
+    available_slots: List[str]

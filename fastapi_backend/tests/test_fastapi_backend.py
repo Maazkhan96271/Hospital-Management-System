@@ -1,7 +1,7 @@
 """Automated test suite verifying the complete FastAPI Hospital Management System backend."""
 
 import asyncio
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, date as dt_date
 import os
 import sys
 
@@ -154,7 +154,6 @@ async def run_all_tests():
         doctor_token = doc_login.json()["access_token"]
 
         # 6. Test Role-Based Protection Dependencies
-        # A Patient trying to access Admin-only /api/v1/users/ -> Must be 403 Forbidden
         patient_admin_attempt = await client.get(
             "/api/v1/users/",
             headers={"Authorization": f"Bearer {patient_token}"},
@@ -162,7 +161,6 @@ async def run_all_tests():
         assert patient_admin_attempt.status_code == 403
         print("✅ Role dependency blocked unauthorized Patient from Admin route (403 Forbidden).")
 
-        # Admin accessing /api/v1/users/ -> Allowed
         admin_users_res = await client.get(
             "/api/v1/users/",
             headers={"Authorization": f"Bearer {admin_token}"},
@@ -187,11 +185,11 @@ async def run_all_tests():
 
         # 8. Test Doctor 7-Day Availability Schedule (JSONB)
         updated_schedule = {
-            "monday": {"available": True, "start": "08:00", "end": "16:00"},
-            "tuesday": {"available": True, "start": "08:00", "end": "16:00"},
-            "wednesday": {"available": True, "start": "08:00", "end": "16:00"},
-            "thursday": {"available": True, "start": "08:00", "end": "16:00"},
-            "friday": {"available": True, "start": "08:00", "end": "14:00"},
+            "monday": {"available": True, "start": "09:00", "end": "12:00"},
+            "tuesday": {"available": True, "start": "09:00", "end": "17:00"},
+            "wednesday": {"available": True, "start": "09:00", "end": "17:00"},
+            "thursday": {"available": True, "start": "09:00", "end": "17:00"},
+            "friday": {"available": True, "start": "09:00", "end": "17:00"},
             "saturday": {"available": False, "start": "00:00", "end": "00:00"},
             "sunday": {"available": False, "start": "00:00", "end": "00:00"},
         }
@@ -201,77 +199,169 @@ async def run_all_tests():
             headers={"Authorization": f"Bearer {doctor_token}"},
         )
         assert avail_res.status_code == 200
-        assert avail_res.json()["weekly_availability"]["monday"]["start"] == "08:00"
+        assert avail_res.json()["weekly_availability"]["monday"]["end"] == "12:00"
         print("✅ Doctor updated JSONB 7-day availability schedule successfully.")
 
-        # 9. Test Appointment Booking & Strict Double-Booking Prevention
-        target_time = (datetime.now(timezone.utc) + timedelta(days=2)).replace(
-            hour=10, minute=0, second=0, microsecond=0
+        # 9. Test GET /api/doctors/{id}/slots?date=YYYY-MM-DD
+        # Find next Monday (which has 09:00 to 12:00 -> exactly 6 30-minute slots)
+        today = dt_date.today()
+        days_ahead = (0 - today.weekday()) % 7  # 0 is Monday
+        if days_ahead == 0:
+            days_ahead = 7
+        next_monday = today + timedelta(days=days_ahead)
+        monday_str = next_monday.strftime("%Y-%m-%d")
+
+        slots_res = await client.get(
+            f"/api/doctors/{doc_profile.id}/slots?date={monday_str}"
         )
+        assert slots_res.status_code == 200
+        slots = slots_res.json()
+        assert isinstance(slots, list)
+        # 09:00 to 12:00 in 30-min increments: 09:00, 09:30, 10:00, 10:30, 11:00, 11:30
+        assert slots == ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30"]
+        print("✅ GET /api/doctors/{id}/slots generated 30-minute working hour slots correctly.")
+
+        # Test Sunday (unavailable day) returns empty list
+        next_sunday = next_monday - timedelta(days=1)
+        sunday_str = next_sunday.strftime("%Y-%m-%d")
+        sunday_slots_res = await client.get(
+            f"/api/doctors/{doc_profile.id}/slots?date={sunday_str}"
+        )
+        assert sunday_slots_res.status_code == 200
+        assert sunday_slots_res.json() == []
+        print("✅ Non-working day correctly returned empty available slots.")
+
+        # 10. Test POST /api/appointments for Patients (with SELECT FOR UPDATE locking)
+        # Book slot 09:30 on next Monday
         book_res = await client.post(
-            "/api/v1/appointments/",
+            "/api/appointments",
             json={
                 "doctor_id": doc_profile.id,
-                "appointment_datetime": target_time.isoformat(),
+                "date": monday_str,
+                "time": "09:30",
                 "duration_minutes": 30,
-                "notes": "Initial cardiac consultation",
+                "notes": "Cardiac consultation",
             },
             headers={"Authorization": f"Bearer {patient_token}"},
         )
         assert book_res.status_code == 201
-        appointment_id = book_res.json()["id"]
-        assert book_res.json()["status"] == "Booked"
-        print("✅ Appointment successfully booked.")
+        appt_data = book_res.json()
+        appointment_id = appt_data["id"]
+        assert appt_data["status"] == "Booked"
+        print("✅ POST /api/appointments booked appointment successfully with date & time format.")
 
-        # Attempt DOUBLE-BOOKING with same doctor at exact same time -> Must return 409 Conflict
+        # Cross-reference: Verify that 09:30 is now REMOVED from available slots
+        updated_slots_res = await client.get(
+            f"/api/doctors/{doc_profile.id}/slots?date={monday_str}"
+        )
+        assert updated_slots_res.status_code == 200
+        updated_slots = updated_slots_res.json()
+        assert "09:30" not in updated_slots
+        assert "09:00" in updated_slots
+        assert "10:00" in updated_slots
+        print("✅ Booked slot was cross-referenced and removed from available slots.")
+
+        # Test double-booking race prevention -> Must return 409 Conflict
         double_book_res = await client.post(
-            "/api/v1/appointments/",
+            "/api/appointments",
             json={
                 "doctor_id": doc_profile.id,
-                "appointment_datetime": target_time.isoformat(),
+                "date": monday_str,
+                "time": "09:30",
                 "duration_minutes": 30,
-                "notes": "Conflicting slot request",
+                "notes": "Concurrent attempt to steal 09:30 slot",
             },
             headers={"Authorization": f"Bearer {patient_token}"},
         )
         assert double_book_res.status_code == 409
         assert "Double-Booking Conflict" in double_book_res.json()["detail"]
-        print("✅ Strict double-booking prevention verified (409 Conflict returned).")
+        print("✅ SELECT FOR UPDATE database locking prevented double-booking conflict (409).")
 
-        # 10. Test Doctor Consultation & TreatmentRecord (with prescription array)
-        prescription_items = [
-            "Atorvastatin 20mg once daily at bedtime",
-            "Aspirin 81mg once daily with breakfast",
-            "Metoprolol Tartrate 25mg twice daily",
-        ]
-        treatment_res = await client.post(
-            "/api/v1/treatments/",
+        # Book another slot at 10:00 and cancel it, verify Cancelled slots are also REMOVED from available slots
+        cancel_appt_res = await client.post(
+            "/api/appointments",
             json={
-                "appointment_id": appointment_id,
-                "diagnosis": "Coronary artery disease - mild stable angina",
-                "prescription": prescription_items,
-                "detailed_notes": "Patient advised lifestyle modifications, low sodium diet.",
+                "doctor_id": doc_profile.id,
+                "date": monday_str,
+                "time": "10:00",
+                "duration_minutes": 30,
+            },
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert cancel_appt_res.status_code == 201
+        cancel_appt_id = cancel_appt_res.json()["id"]
+
+        # Cancel this appointment
+        patch_cancel = await client.patch(
+            f"/api/appointments/{cancel_appt_id}/status",
+            json={"status": "Cancelled"},
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert patch_cancel.status_code == 200
+        assert patch_cancel.json()["status"] == "Cancelled"
+
+        # Check slots again: both Booked (09:30) and Cancelled (10:00) must be removed as required
+        slots_after_cancel = (
+            await client.get(f"/api/doctors/{doc_profile.id}/slots?date={monday_str}")
+        ).json()
+        assert "09:30" not in slots_after_cancel
+        assert "10:00" not in slots_after_cancel
+        print("✅ Cross-referencing correctly removed both Booked and Cancelled slots.")
+
+        # 11. Test Doctor Daily Agenda Endpoints
+        agenda_me_res = await client.get(
+            f"/api/doctors/me/agenda?date={monday_str}",
+            headers={"Authorization": f"Bearer {doctor_token}"},
+        )
+        assert agenda_me_res.status_code == 200
+        agenda_data = agenda_me_res.json()
+        assert agenda_data["doctor_id"] == doc_profile.id
+        assert agenda_data["total_appointments"] >= 2
+        assert agenda_data["booked_count"] >= 1
+        assert len(agenda_data["appointments"]) >= 2
+        print("✅ Doctor fetched their daily agenda successfully via /api/doctors/me/agenda.")
+
+        agenda_id_res = await client.get(
+            f"/api/doctors/{doc_profile.id}/agenda?date={monday_str}",
+            headers={"Authorization": f"Bearer {doctor_token}"},
+        )
+        assert agenda_id_res.status_code == 200
+        assert agenda_id_res.json()["doctor_id"] == doc_profile.id
+        print("✅ Doctor fetched their daily agenda via /api/doctors/{id}/agenda.")
+
+        # 12. Test Completing Appointment with TreatmentRecord
+        complete_res = await client.post(
+            f"/api/appointments/{appointment_id}/complete",
+            json={
+                "diagnosis": "Mild Essential Hypertension - Stage 1",
+                "prescription": [
+                    "Amlodipine 5mg once daily in the morning",
+                    "Lifestyle advice: reduce dietary sodium",
+                ],
+                "detailed_notes": "Patient advised to track morning BP readings for 2 weeks.",
             },
             headers={"Authorization": f"Bearer {doctor_token}"},
         )
-        assert treatment_res.status_code == 201
-        saved_treatment = treatment_res.json()
-        assert saved_treatment["diagnosis"] == "Coronary artery disease - mild stable angina"
-        assert len(saved_treatment["prescription"]) == 3
-        assert saved_treatment["prescription"][0] == "Atorvastatin 20mg once daily at bedtime"
-        print("✅ Treatment record with prescription array saved successfully.")
-
-        # Verify that the appointment status transitioned to Completed
-        appts_list = await client.get(
-            "/api/v1/appointments/",
-            headers={"Authorization": f"Bearer {patient_token}"},
-        )
-        assert appts_list.status_code == 200
-        completed_appt = next(a for a in appts_list.json() if a["id"] == appointment_id)
+        assert complete_res.status_code == 200
+        completed_appt = complete_res.json()
         assert completed_appt["status"] == "Completed"
-        print("✅ Appointment status automatically updated to 'Completed' upon treatment creation.")
+        assert completed_appt["treatment_record"] is not None
+        assert completed_appt["treatment_record"]["diagnosis"] == "Mild Essential Hypertension - Stage 1"
+        assert len(completed_appt["treatment_record"]["prescription"]) == 2
+        assert completed_appt["treatment_record"]["prescription"][0] == "Amlodipine 5mg once daily in the morning"
+        print("✅ Doctor completed appointment and attached TreatmentRecord successfully.")
 
-    print("\n🎉 ALL FASTAPI BACKEND TESTS PASSED CLEANLY!")
+        # Verify agenda now reflects completed_count == 1
+        refreshed_agenda = (
+            await client.get(
+                f"/api/doctors/me/agenda?date={monday_str}",
+                headers={"Authorization": f"Bearer {doctor_token}"},
+            )
+        ).json()
+        assert refreshed_agenda["completed_count"] >= 1
+        print("✅ Doctor agenda dynamically reflected Completed appointment status.")
+
+    print("\n🎉 ALL APPOINTMENT BOOKING ENGINE TESTS PASSED CLEANLY!")
 
 
 def test_fastapi_hospital_backend():

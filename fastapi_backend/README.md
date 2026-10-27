@@ -112,3 +112,67 @@ Once the server is running, navigate to:
 - **OpenAPI JSON Spec:** [http://localhost:8000/api/v1/openapi.json](http://localhost:8000/api/v1/openapi.json)
 
 Click the **Authorize** button in Swagger UI to log in using the initial seeded Admin credentials (`admin` / `Admin@123`) or register a new Patient account.
+
+---
+
+## 📅 Appointment Booking Engine API
+
+### 1. Doctor Slot Availability (`GET /api/doctors/{id}/slots?date=YYYY-MM-DD`)
+Reads the doctor's JSONB availability schedule, divides working hours into 30-minute intervals, and cross-references the Appointment table to remove occupied (Booked, Completed, or Cancelled) slots:
+
+```bash
+curl -X GET "http://localhost:8000/api/doctors/1/slots?date=2026-11-02"
+```
+
+Response:
+```json
+["09:00", "09:30", "10:00", "10:30", "11:00", "11:30"]
+```
+
+### 2. Patient Appointment Booking with Race Condition Locks (`POST /api/appointments`)
+Uses PostgreSQL row-level locks (`SELECT ... FOR UPDATE`) on the doctor profile and slot query to serialize concurrent booking requests at the exact same millisecond:
+
+```bash
+curl -X POST "http://localhost:8000/api/appointments" \
+  -H "Authorization: Bearer <PATIENT_JWT>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "doctor_id": 1,
+    "date": "2026-11-02",
+    "time": "09:30",
+    "duration_minutes": 30,
+    "notes": "Cardiac follow-up"
+  }'
+```
+
+### 3. Doctor Daily Agenda (`GET /api/doctors/me/agenda?date=YYYY-MM-DD`)
+Allows an attending physician to retrieve their daily schedule with patient details and counts:
+
+```bash
+curl -X GET "http://localhost:8000/api/doctors/me/agenda?date=2026-11-02" \
+  -H "Authorization: Bearer <DOCTOR_JWT>"
+```
+
+### 4. Complete Appointment with TreatmentRecord (`POST /api/appointments/{id}/complete`)
+Transitions appointment status to `Completed` and attaches clinical diagnosis, prescription array, and consultation notes:
+
+```bash
+curl -X POST "http://localhost:8000/api/appointments/1/complete" \
+  -H "Authorization: Bearer <DOCTOR_JWT>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "diagnosis": "Mild Essential Hypertension - Stage 1",
+    "prescription": ["Amlodipine 5mg once daily", "Lifestyle changes"],
+    "detailed_notes": "Patient advised to track morning BP."
+  }'
+```
+
+---
+
+## 🧪 Automated Testing
+
+Execute the complete asynchronous backend test suite:
+
+```bash
+python3 -m pytest fastapi_backend/tests/test_fastapi_backend.py -v
+```

@@ -101,13 +101,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include API Routers under /api/v1
-app.include_router(auth.router, prefix=settings.API_V1_STR)
-app.include_router(users.router, prefix=settings.API_V1_STR)
-app.include_router(departments.router, prefix=settings.API_V1_STR)
-app.include_router(doctors.router, prefix=settings.API_V1_STR)
-app.include_router(appointments.router, prefix=settings.API_V1_STR)
-app.include_router(treatments.router, prefix=settings.API_V1_STR)
+# Include API Routers under /api/v1 (standard) and /api (direct alias)
+for prefix in [settings.API_V1_STR, "/api"]:
+    app.include_router(auth.router, prefix=prefix)
+    app.include_router(users.router, prefix=prefix)
+    app.include_router(departments.router, prefix=prefix)
+    app.include_router(doctors.router, prefix=prefix)
+    app.include_router(appointments.router, prefix=prefix)
+    app.include_router(treatments.router, prefix=prefix)
 
 
 @app.get(
