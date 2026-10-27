@@ -56,13 +56,26 @@
                             {{ form.appointment_time.label(class="form-label fw-bold") }}
                             <div class="input-group has-validation">
                                 <span class="input-group-text"><i class="bi bi-clock"></i></span>
-                                {{ form.appointment_time(class="form-control" + (" is-invalid" if form.appointment_time.errors else ""), type="time", required=True) }}
+                                {{ form.appointment_time(class="form-control" + (" is-invalid" if form.appointment_time.errors else ""), type="time", id="appointmentTimeInput", required=True) }}
                                 <div class="invalid-feedback">Please select a consultation time slot.</div>
                             </div>
-                            <small class="text-muted">Consultation slot time.</small>
+                            <small class="text-muted">Enter time or pick an available slot below.</small>
                             {% for error in form.appointment_time.errors %}
                                 <div class="text-danger small mt-1 fw-bold"><i class="bi bi-slash-circle-fill"></i> {{ error }}</div>
                             {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- Interactive Slot Picker Container -->
+                    <div id="slotPickerContainer" class="mb-3" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <label class="form-label small fw-bold text-muted mb-0">
+                                <i class="bi bi-calendar2-range text-primary"></i> Live 30-Minute Time Slots:
+                            </label>
+                            <span id="slotStatusBadge" class="badge bg-secondary-subtle text-secondary small">Querying API...</span>
+                        </div>
+                        <div id="slotButtonsGrid" class="d-flex flex-wrap gap-1 p-2 bg-light rounded border" style="min-height: 48px;">
+                            <!-- Populated dynamically from /api/doctors/<id>/slots?date=... -->
                         </div>
                     </div>
 
@@ -182,4 +195,93 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const doctorSelect = document.getElementById("doctorSelect");
+    const dateInput = document.querySelector('input[name="appointment_date"]');
+    const timeInput = document.getElementById("appointmentTimeInput");
+    const slotPicker = document.getElementById("slotPickerContainer");
+    const slotGrid = document.getElementById("slotButtonsGrid");
+    const statusBadge = document.getElementById("slotStatusBadge");
+
+    function queryAvailableSlots() {
+        const docId = doctorSelect.value;
+        const dateVal = dateInput.value;
+
+        if (!docId || !dateVal) {
+            slotPicker.style.display = "none";
+            return;
+        }
+
+        slotPicker.style.display = "block";
+        statusBadge.className = "badge bg-info-subtle text-info small";
+        statusBadge.textContent = "Loading slots...";
+        slotGrid.innerHTML = '<span class="text-muted small p-2"><span class="spinner-border spinner-border-sm me-1"></span>Querying slot API...</span>';
+
+        fetch(`/api/doctors/${docId}/slots?date=${encodeURIComponent(dateVal)}`)
+            .then(res => res.json())
+            .then(data => {
+                slotGrid.innerHTML = "";
+                if (data.status !== "success" || !data.is_available) {
+                    statusBadge.className = "badge bg-danger-subtle text-danger small";
+                    statusBadge.textContent = "Doctor Unavailable";
+                    slotGrid.innerHTML = `<span class="text-danger small p-2"><i class="bi bi-exclamation-triangle me-1"></i>Dr. ${data.doctor_name || 'selected doctor'} is marked off on ${data.day_name || 'this day'}. Please choose another date.</span>`;
+                    return;
+                }
+
+                if (!data.available_slots || data.available_slots.length === 0) {
+                    statusBadge.className = "badge bg-warning-subtle text-warning-emphasis small";
+                    statusBadge.textContent = "Fully Booked";
+                    slotGrid.innerHTML = '<span class="text-muted small p-2"><i class="bi bi-slash-circle me-1"></i>All consultation slots on this date are already booked.</span>';
+                    return;
+                }
+
+                statusBadge.className = "badge bg-success-subtle text-success small";
+                statusBadge.textContent = `${data.available_count} slot(s) open`;
+
+                data.available_slots.forEach(slot => {
+                    const btn = document.createElement("button");
+                    btn.type = "button";
+                    btn.className = `btn btn-sm ${timeInput.value === slot ? 'btn-primary' : 'btn-outline-primary'} py-1 px-2`;
+                    btn.textContent = slot;
+                    btn.addEventListener("click", () => {
+                        timeInput.value = slot;
+                        slotGrid.querySelectorAll("button").forEach(b => {
+                            b.className = "btn btn-sm btn-outline-primary py-1 px-2";
+                        });
+                        btn.className = "btn btn-sm btn-primary py-1 px-2";
+                        timeInput.dispatchEvent(new Event("change"));
+                    });
+                    slotGrid.appendChild(btn);
+                });
+
+                if (data.booked_slots && data.booked_slots.length > 0) {
+                    data.booked_slots.forEach(slot => {
+                        const disabledSpan = document.createElement("span");
+                        disabledSpan.className = "badge bg-secondary-subtle text-decoration-line-through text-muted py-2 px-2";
+                        disabledSpan.title = "Already Booked";
+                        disabledSpan.textContent = slot;
+                        slotGrid.appendChild(disabledSpan);
+                    });
+                }
+            })
+            .catch(err => {
+                statusBadge.className = "badge bg-secondary small";
+                statusBadge.textContent = "Offline";
+                slotGrid.innerHTML = '<span class="text-muted small p-2">Select time manually above.</span>';
+            });
+    }
+
+    if (doctorSelect && dateInput) {
+        doctorSelect.addEventListener("change", queryAvailableSlots);
+        dateInput.addEventListener("change", queryAvailableSlots);
+        if (doctorSelect.value && dateInput.value) {
+            queryAvailableSlots();
+        }
+    }
+});
+</script>
 {% endblock %}

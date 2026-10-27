@@ -123,7 +123,7 @@ def test_flask_modular_app_startup_and_admin_seeding():
                 doctor_id=doc_profile.id,
                 appointment_date=date(2026, 11, 2),
                 appointment_time=time(10, 0),
-                status=AppointmentStatus.SCHEDULED,
+                status=AppointmentStatus.COMPLETED,
                 reason="Routine checkup",
             )
             db.session.add(appt)
@@ -248,6 +248,122 @@ def test_flask_modular_app_startup_and_admin_seeding():
         assert "Today's Agenda" in doc_html
         assert "7-Day Availability" in doc_html
         print("✅ Staff login allows Doctor and renders Doctor navbar.")
+
+        # 13. Test RESTful API for Available 7-Day Time Slots
+        with app.app_context():
+            doc_rec = DoctorProfile.query.first()
+            doc_id = doc_rec.id
+
+        # 7-day slot availability overview
+        api_7days_res = client.get(f"/api/doctors/{doc_id}/slots")
+        assert api_7days_res.status_code == 200
+        api_data = api_7days_res.get_json()
+        assert api_data["status"] == "success"
+        assert len(api_data["days"]) == 7
+        assert "available_slots_by_date" in api_data
+        print("✅ RESTful API returns available 7-day time slots for doctor.")
+
+        # Single-day slot query
+        monday_str = "2026-11-02"
+        api_single_res = client.get(f"/api/doctors/{doc_id}/slots?date={monday_str}")
+        assert api_single_res.status_code == 200
+        single_data = api_single_res.get_json()
+        assert single_data["status"] == "success"
+        assert single_data["is_available"] is True
+        assert "10:00" in single_data["booked_slots"]
+        assert "10:00" not in single_data["available_slots"]
+        assert "09:00" in single_data["available_slots"]
+        assert "09:30" in single_data["available_slots"]
+        print("✅ RESTful API excludes already booked appointments from available 30-min slots.")
+
+        # 14. Test Backend Validation against Double-Booking
+        # Attempt to book exact same slot (2026-11-02 at 10:00) with Dr. Smith -> Must be rejected!
+        conflict_booking = patient_client.post(
+            "/patient/appointments/book",
+            data={
+                "doctor_id": doc_id,
+                "appointment_date": "2026-11-02",
+                "appointment_time": "10:00",
+                "reason": "Duplicate collision attempt",
+            },
+            follow_redirects=True,
+        )
+        conflict_html = conflict_booking.data.decode("utf-8")
+        assert "Double-Booking Conflict" in conflict_html
+        print("✅ Backend validation strictly blocks double-booking on same doctor, date & time.")
+
+        # 15. Test Patient Dashboard (Displays departments, doctor search, and history)
+        p_dash_res = patient_client.get("/patient/dashboard")
+        assert p_dash_res.status_code == 200
+        p_dash_html = p_dash_res.data.decode("utf-8")
+        assert "Cardiology" in p_dash_html
+        assert "Medical Departments & Specialists" in p_dash_html
+
+        # Check patient with existing treatment history (john_doe)
+        john_client = app.test_client()
+        john_client.post(
+            "/login",
+            data={"username": "john_doe", "password": "Patient@123"},
+            follow_redirects=True,
+        )
+        j_dash = john_client.get("/patient/dashboard")
+        assert "Hypertension Stage 1" in j_dash.data.decode("utf-8")
+        assert "Amlodipine 5mg daily" in j_dash.data.decode("utf-8")
+
+        # Doctor Search
+        search_res = patient_client.get("/patient/doctors?q=Smith")
+        assert search_res.status_code == 200
+        assert "Dr. Alice Smith" in search_res.data.decode("utf-8")
+        print("✅ Patient Dashboard displays departments, doctor search, and past treatment history.")
+
+        # 16. Test Doctor Consultation: Complete Appointment & Record Treatment
+        with app.app_context():
+            # Create a pending appointment for today
+            today_date = date.today()
+            today_appt = Appointment(
+                patient_id=registered_patient.id,
+                doctor_id=doc_id,
+                appointment_date=today_date,
+                appointment_time=time(14, 0),
+                status=AppointmentStatus.SCHEDULED,
+                reason="Chest discomfort",
+            )
+            db.session.add(today_appt)
+            db.session.commit()
+            today_appt_id = today_appt.id
+
+        # Verify today's patient appears on doctor's dashboard
+        d_dash_res = doc_client.get("/doctor/dashboard")
+        assert d_dash_res.status_code == 200
+        assert "Alice Patient" in d_dash_res.data.decode("utf-8")
+        assert "Today's Assigned Patients" in d_dash_res.data.decode("utf-8")
+
+        # Doctor completes consultation and submits diagnosis + prescription
+        complete_res = doc_client.post(
+            f"/doctor/consultation/{today_appt_id}",
+            data={
+                "diagnosis": "Mild Angina Pectoris",
+                "prescription": "Nitroglycerin 0.4mg sublingual PRN",
+                "notes": "ECG normal, monitor exertion levels",
+            },
+            follow_redirects=True,
+        )
+        assert complete_res.status_code == 200
+        assert "Consultation completed and treatment recorded" in complete_res.data.decode("utf-8")
+
+        # Verify in database that appointment is Completed and Treatment attached
+        with app.app_context():
+            verified_appt = db.session.get(Appointment, today_appt_id)
+            assert verified_appt.status == AppointmentStatus.COMPLETED
+            assert verified_appt.treatment is not None
+            assert verified_appt.treatment.diagnosis == "Mild Angina Pectoris"
+            assert "Nitroglycerin" in verified_appt.treatment.prescription
+
+        # Verify patient sees the newly completed treatment on their dashboard
+        p_updated = patient_client.get("/patient/dashboard")
+        assert "Mild Angina Pectoris" in p_updated.data.decode("utf-8")
+        assert "Nitroglycerin" in p_updated.data.decode("utf-8")
+        print("✅ Doctor Dashboard updates appointment to Completed and attaches Treatment record.")
 
     finally:
         if os.path.exists(db_path):

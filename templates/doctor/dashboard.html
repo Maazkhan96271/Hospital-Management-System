@@ -99,6 +99,78 @@
 </div>
 {% endif %}
 
+<!-- Today's Assigned Patients -->
+<div class="card mb-4 border-primary shadow-sm">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center py-3">
+        <h5 class="mb-0 fw-bold">
+            <i class="bi bi-calendar2-check-fill me-1"></i> Today's Assigned Patients
+        </h5>
+        <span class="badge bg-light text-primary fw-semibold fs-6">
+            {{ today.strftime('%A, %b %d, %Y') }} &bull; {{ today_appointments | length }} patient{{ 's' if today_appointments | length != 1 }}
+        </span>
+    </div>
+    <div class="card-body table-responsive p-0">
+        {% if today_appointments %}
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th class="ps-3">Time</th>
+                    <th>Patient Name</th>
+                    <th>Contact</th>
+                    <th>Chief Complaint / Reason</th>
+                    <th>Status</th>
+                    <th class="text-end pe-3">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in today_appointments %}
+                <tr>
+                    <td class="ps-3 fw-bold text-primary">
+                        <i class="bi bi-clock me-1"></i>{{ a.appointment_time.strftime('%I:%M %p') }}
+                    </td>
+                    <td>
+                        <span class="fw-bold">{{ a.patient.full_name if a.patient else 'Patient #' ~ a.patient_id }}</span>
+                    </td>
+                    <td>
+                        <small class="text-muted d-block"><i class="bi bi-envelope"></i> {{ a.patient.email if a.patient else '—' }}</small>
+                        <small class="text-muted d-block"><i class="bi bi-telephone"></i> {{ a.patient.phone if a.patient and a.patient.phone else '—' }}</small>
+                    </td>
+                    <td>
+                        <span class="text-truncate d-inline-block" style="max-width: 250px;">{{ a.reason or 'Routine Consultation' }}</span>
+                    </td>
+                    <td>
+                        {% if a.status == 'completed' %}
+                            <span class="badge bg-success-subtle text-success border border-success-subtle">
+                                <i class="bi bi-check-circle me-1"></i>Completed
+                            </span>
+                        {% elif a.status == 'cancelled' %}
+                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle">
+                                <i class="bi bi-x-circle me-1"></i>Cancelled
+                            </span>
+                        {% else %}
+                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">
+                                <i class="bi bi-hourglass-split me-1"></i>Scheduled
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end pe-3">
+                        <a href="{{ url_for('doctor_consultation', appointment_id=a.id) }}" class="btn btn-sm {{ 'btn-success' if a.status == 'completed' else 'btn-primary' }}">
+                            <i class="bi bi-clipboard2-pulse me-1"></i>{{ 'Review' if a.status == 'completed' else 'Consult & Treat' }}
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="text-center py-4 text-muted">
+            <i class="bi bi-calendar-x display-6"></i>
+            <p class="mt-2 mb-0">No patients scheduled for consultation today.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
 <!-- Upcoming Appointments (This Week) -->
 <div class="card mb-4">
     <div class="card-header bg-warning bg-opacity-25">

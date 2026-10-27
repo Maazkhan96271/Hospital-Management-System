@@ -30,6 +30,14 @@ def doctor_dashboard():
     end_of_week = start_of_week + timedelta(days=6)          # Sunday
 
     if profile:
+        today_appointments = (
+            Appointment.query.filter(
+                Appointment.doctor_id == profile.id,
+                Appointment.appointment_date == today,
+            )
+            .order_by(Appointment.appointment_time.asc())
+            .all()
+        )
         upcoming = (
             Appointment.query.filter(
                 Appointment.doctor_id == profile.id,
@@ -45,6 +53,7 @@ def doctor_dashboard():
             .all()
         )
     else:
+        today_appointments = []
         upcoming = []
         all_appointments = []
 
@@ -53,6 +62,8 @@ def doctor_dashboard():
     return render_template(
         "doctor/dashboard.html",
         profile=profile,
+        today=today,
+        today_appointments=today_appointments,
         upcoming=upcoming,
         appointments=all_appointments,
         availability=availability,

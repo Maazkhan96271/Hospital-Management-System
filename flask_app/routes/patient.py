@@ -2,6 +2,7 @@
 
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
+from sqlalchemy import or_
 
 from flask_app.extensions import db
 from flask_app.models import (
@@ -34,6 +35,7 @@ def patient_dashboard():
 
     total_departments = Department.query.count()
     total_doctors = DoctorProfile.query.join(User).filter(User.is_active == True).count()
+    departments = Department.query.order_by(Department.name.asc()).all()
 
     return render_template(
         "patient/dashboard.html",
@@ -43,6 +45,7 @@ def patient_dashboard():
         cancelled=cancelled,
         total_departments=total_departments,
         total_doctors=total_doctors,
+        departments=departments,
     )
 
 
@@ -50,25 +53,31 @@ def patient_dashboard():
 @login_required
 @patient_required
 def patient_doctors():
-    """View all medical departments and active doctors with 7-day availability."""
+    """View all medical departments and active doctors with 7-day availability and doctor search."""
+    q = request.args.get("q", "").strip()
     departments = Department.query.order_by(Department.name.asc()).all()
-    unassigned_doctors = (
-        DoctorProfile.query.join(User)
-        .filter(User.is_active == True, DoctorProfile.department_id.is_(None))
-        .all()
-    )
-    all_doctors = (
-        DoctorProfile.query.join(User)
-        .filter(User.is_active == True)
-        .order_by(User.first_name.asc())
-        .all()
-    )
+
+    query = DoctorProfile.query.join(User).filter(User.is_active == True)
+    if q:
+        pattern = f"%{q}%"
+        query = query.filter(
+            or_(
+                User.first_name.ilike(pattern),
+                User.last_name.ilike(pattern),
+                DoctorProfile.specialisation.ilike(pattern),
+                DoctorProfile.qualification.ilike(pattern),
+            )
+        )
+
+    all_doctors = query.order_by(User.first_name.asc()).all()
+    unassigned_doctors = [d for d in all_doctors if d.department_id is None]
 
     return render_template(
         "patient/doctors.html",
         departments=departments,
         unassigned_doctors=unassigned_doctors,
         all_doctors=all_doctors,
+        search_query=q,
     )
 
 
@@ -104,10 +113,10 @@ def patient_book_appointment():
     selected_doctor_info = None
     current_selection_id = form.doctor_id.data or preselected_id
     if current_selection_id:
-        selected_doctor_info = DoctorProfile.query.get(current_selection_id)
+        selected_doctor_info = db.session.get(DoctorProfile, current_selection_id)
 
     if form.validate_on_submit():
-        doctor_profile = DoctorProfile.query.get(form.doctor_id.data)
+        doctor_profile = db.session.get(DoctorProfile, form.doctor_id.data)
 
         if not doctor_profile or not doctor_profile.user or not doctor_profile.user.is_active:
             form.doctor_id.errors.append("Selected doctor is currently unavailable.")

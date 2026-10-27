@@ -67,6 +67,57 @@
     </div>
 </div>
 
+<!-- Medical Departments & Doctor Discovery Section -->
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-header bg-white py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div>
+            <h5 class="mb-0 fw-semibold text-primary">
+                <i class="bi bi-hospital"></i> Medical Departments & Specialists
+            </h5>
+            <small class="text-muted">Explore clinical departments and check real-time doctor availability.</small>
+        </div>
+        <form action="{{ url_for('patient_doctors') }}" method="GET" class="d-flex gap-2">
+            <input type="text" name="q" class="form-control form-control-sm" placeholder="Search doctor or specialty..." style="max-width: 240px;">
+            <button type="submit" class="btn btn-sm btn-primary">
+                <i class="bi bi-search"></i> Search
+            </button>
+        </form>
+    </div>
+    <div class="card-body">
+        {% if departments %}
+        <div class="row g-3">
+            {% for d in departments %}
+            <div class="col-sm-6 col-lg-4">
+                <div class="p-3 rounded border bg-light h-100 d-flex flex-column justify-content-between">
+                    <div>
+                        <div class="d-flex justify-content-between align-items-start mb-1">
+                            <h6 class="fw-bold text-dark mb-0">
+                                <i class="bi bi-building text-primary me-1"></i>{{ d.name }}
+                            </h6>
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill">
+                                {{ d.doctors.count() }} Doctor{{ 's' if d.doctors.count() != 1 }}
+                            </span>
+                        </div>
+                        <p class="text-muted small mb-3 text-truncate">{{ d.description or 'Specialized healthcare services' }}</p>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center pt-2 border-top">
+                        <a href="{{ url_for('patient_doctors') }}" class="btn btn-sm btn-link text-decoration-none p-0 text-primary fw-semibold">
+                            Browse Doctors <i class="bi bi-arrow-right-short"></i>
+                        </a>
+                        <a href="{{ url_for('patient_book_appointment') }}" class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size: 0.75rem;">
+                            Book
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-muted small mb-0">No departments configured yet.</p>
+        {% endif %}
+    </div>
+</div>
+
 <!-- Upcoming Appointments Section -->
 <div class="card shadow-sm border-0 mb-4">
     <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
