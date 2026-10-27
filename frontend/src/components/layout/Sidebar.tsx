@@ -79,7 +79,7 @@ export function Sidebar({ onOpenSearch, canSearch }: SidebarProps) {
         {
           section: "Shortcuts",
           items: [
-            { title: "Public Directory", href: "/doctors", icon: Stethoscope },
+            { title: "Public Directory", href: "/directory", icon: Stethoscope },
           ],
         },
       ];

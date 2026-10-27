@@ -22,4 +22,5 @@ class DepartmentUpdate(BaseModel):
 class DepartmentOut(DepartmentBase):
     id: int
     created_at: datetime
+    doctor_count: Optional[int] = 0
     model_config = ConfigDict(from_attributes=True)

@@ -1,5 +1,6 @@
 """Treatment record endpoints."""
 
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -120,3 +121,32 @@ async def get_treatment_by_appointment(
             detail="No treatment record found for this appointment.",
         )
     return record
+
+
+@router.get(
+    "/patient/{patient_id}",
+    response_model=List[TreatmentRecordOut],
+    summary="Get all treatment records for a patient",
+)
+async def get_patient_treatments(
+    patient_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+) -> List[TreatmentRecordOut]:
+    """Retrieve full medical history and treatment records for a patient."""
+    role_name = current_user.role.name if current_user.role else ""
+    if role_name == "Patient" and current_user.id != patient_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only view your own treatment records.",
+        )
+
+    stmt = (
+        select(TreatmentRecord)
+        .join(Appointment, TreatmentRecord.appointment_id == Appointment.id)
+        .filter(Appointment.patient_id == patient_id)
+        .order_by(TreatmentRecord.created_at.desc())
+    )
+    result = await db.execute(stmt)
+    return list(result.scalars().all())
+

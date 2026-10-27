@@ -4,6 +4,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.api.dependencies import get_current_admin, get_current_active_user
@@ -21,9 +22,19 @@ router = APIRouter(prefix="/departments", tags=["Departments"])
 async def list_departments(
     db: AsyncSession = Depends(get_db),
 ) -> List[DepartmentOut]:
-    """Retrieve all hospital departments."""
-    result = await db.execute(select(Department).order_by(Department.name.asc()))
-    return list(result.scalars().all())
+    """Retrieve all hospital departments with assigned doctor counts."""
+    result = await db.execute(
+        select(Department)
+        .options(selectinload(Department.doctors))
+        .order_by(Department.name.asc())
+    )
+    depts = result.scalars().all()
+    output: List[DepartmentOut] = []
+    for d in depts:
+        dto = DepartmentOut.model_validate(d)
+        dto.doctor_count = len(d.doctors) if d.doctors is not None else 0
+        output.append(dto)
+    return output
 
 
 @router.post(
