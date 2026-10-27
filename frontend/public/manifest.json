@@ -1,0 +1,75 @@
+{
+  "name": "Apollo Enterprise Health - Hospital Management System",
+  "short_name": "Apollo HMS",
+  "description": "Enterprise Hospital Management System, Electronic Medical Records (EMR), Pharmacy POS, and Diagnostic Laboratory Portal",
+  "start_url": "/",
+  "id": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0b132b",
+  "theme_color": "#0b132b",
+  "categories": ["medical", "health", "productivity", "business"],
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Live Reception",
+      "short_name": "Reception",
+      "description": "Live queue management and patient check-in",
+      "url": "/admin/reception",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Doctor EMR Agenda",
+      "short_name": "EMR",
+      "description": "Physician clinical consultations and EMR workspace",
+      "url": "/doctor/agenda",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Pharmacy POS",
+      "short_name": "Pharmacy",
+      "description": "Prescription dispensing and inventory",
+      "url": "/pharmacy",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Lab Portal",
+      "short_name": "Laboratory",
+      "description": "Diagnostic specimen analysis and reports",
+      "url": "/lab",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+    }
+  ]
+}

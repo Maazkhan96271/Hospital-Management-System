@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { InstallPWAButton } from "@/components/pwa/InstallPWAButton";
 import { GlobalPatientSearch } from "@/components/search/GlobalPatientSearch";
 import {
   DropdownMenu,
@@ -172,6 +173,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             >
               <Bell className="h-4 w-4" />
             </Button>
+
+            {/* Global Install PWA App Button */}
+            <InstallPWAButton />
 
             {/* Dark / Light Mode Toggle */}
             <ThemeToggle />

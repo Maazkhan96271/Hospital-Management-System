@@ -7,6 +7,7 @@ import { useAuth } from "@/context/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { InstallPWAButton } from "@/components/pwa/InstallPWAButton";
 import {
   LayoutDashboard,
   CalendarCheck,
@@ -215,6 +216,7 @@ export function Sidebar({
           <span className="font-extrabold text-base tracking-tight text-white">MediCare HMS</span>
         </Link>
         <div className="flex items-center gap-2">
+          <InstallPWAButton className="h-7 text-[11px] px-2 py-0.5" />
           {canSearch && (
             <Button
               variant="ghost"
