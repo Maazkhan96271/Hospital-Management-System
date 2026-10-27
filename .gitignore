@@ -31,3 +31,8 @@ instance/
 
 # Pytest
 .pytest_cache/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
