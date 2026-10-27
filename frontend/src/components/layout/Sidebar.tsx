@@ -25,8 +25,10 @@ import {
   ChevronRight,
   LogIn,
   UserPlus,
+  Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 interface NavItem {
   title: string;
@@ -35,7 +37,12 @@ interface NavItem {
   badge?: string;
 }
 
-export function Sidebar() {
+interface SidebarProps {
+  onOpenSearch?: () => void;
+  canSearch?: boolean;
+}
+
+export function Sidebar({ onOpenSearch, canSearch }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, role, isAuthenticated, logout } = useAuth();
@@ -152,14 +159,28 @@ export function Sidebar() {
           </div>
           <span className="font-bold text-lg text-slate-900 dark:text-white">MediCare HMS</span>
         </Link>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setIsOpen(!isOpen)}
-          aria-label="Toggle navigation menu"
-        >
-          {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </Button>
+        <div className="flex items-center gap-1.5">
+          {canSearch && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onOpenSearch}
+              className="text-slate-600 dark:text-slate-300"
+              aria-label="Search patients"
+            >
+              <Search className="h-5 w-5" />
+            </Button>
+          )}
+          <ThemeToggle />
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setIsOpen(!isOpen)}
+            aria-label="Toggle navigation menu"
+          >
+            {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </Button>
+        </div>
       </div>
 
       {/* Mobile Backdrop Overlay */}
@@ -228,6 +249,28 @@ export function Sidebar() {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Quick Search Shortcut for Admins & Doctors */}
+        {canSearch && (
+          <div className="px-3 pb-1">
+            <button
+              type="button"
+              onClick={() => {
+                setIsOpen(false);
+                onOpenSearch?.();
+              }}
+              className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium rounded-xl text-slate-500 dark:text-slate-400 bg-slate-100/80 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200/80 dark:border-slate-700/60 transition-colors shadow-xs"
+            >
+              <span className="flex items-center gap-2">
+                <Search className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
+                <span className="text-slate-700 dark:text-slate-300 font-medium">Search Patients...</span>
+              </span>
+              <kbd className="font-mono text-[10px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-0.5 text-slate-400 shadow-xs">
+                ⌘K
+              </kbd>
+            </button>
           </div>
         )}
 

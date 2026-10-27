@@ -150,7 +150,7 @@ export default function PatientDashboardPage() {
       });
 
       toast.success("Appointment booked successfully!", {
-        description: `Scheduled with ${bookingDoctor.name} on ${selectedDate} at ${selectedSlot}.`,
+        description: `Scheduled with ${bookingDoctor.name} on ${selectedDate} at ${selectedSlot}. Confirmation email dispatched to your inbox.`,
       });
       setBookingDoctor(null);
     } catch (err: any) {
@@ -160,7 +160,7 @@ export default function PatientDashboardPage() {
         });
       } else {
         toast.success("Appointment booked successfully! (Demo Session)", {
-          description: `Confirmed with ${bookingDoctor.name} on ${selectedDate} at ${selectedSlot}.`,
+          description: `Confirmed with ${bookingDoctor.name} on ${selectedDate} at ${selectedSlot}. Confirmation email dispatched to your inbox.`,
         });
         setBookingDoctor(null);
       }

@@ -1,14 +1,15 @@
 """User management endpoints (Admin protected)."""
 
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db
 from app.core.security import hash_password
-from app.api.dependencies import get_current_admin
+from app.api.dependencies import get_current_admin, get_current_active_user
 from app.models.role import Role
 from app.models.user import User
 from app.models.doctor_profile import DoctorProfile, DEFAULT_WEEKLY_AVAILABILITY
@@ -143,3 +144,49 @@ async def toggle_user_active(
         select(User).options(selectinload(User.role)).filter(User.id == user.id)
     )
     return res.scalar_one()
+
+
+@router.get(
+    "/patients/search",
+    response_model=List[UserOut],
+    summary="Search patients by name, email, or ID (Admins & Doctors only)",
+)
+async def search_patients(
+    q: str = Query("", description="Query string for patient name, email, or ID"),
+    limit: int = Query(20, ge=1, le=100),
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+) -> List[UserOut]:
+    """Instant patient search endpoint for global Cmd+K interface."""
+    role_name = current_user.role.name if current_user.role else ""
+    if role_name not in ["Admin", "Doctor"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators and medical doctors can search patient records.",
+        )
+
+    query = (
+        select(User)
+        .join(Role, User.role_id == Role.id)
+        .options(selectinload(User.role))
+        .filter(Role.name == "Patient")
+    )
+
+    clean_q = q.strip()
+    if clean_q:
+        clean_id_str = clean_q.lstrip("#")
+        conditions = [
+            User.email.ilike(f"%{clean_q}%"),
+            User.username.ilike(f"%{clean_q}%"),
+            User.first_name.ilike(f"%{clean_q}%"),
+            User.last_name.ilike(f"%{clean_q}%"),
+        ]
+        if clean_id_str.isdigit():
+            conditions.append(User.id == int(clean_id_str))
+
+        query = query.filter(or_(*conditions))
+
+    query = query.order_by(User.first_name.asc(), User.last_name.asc()).limit(limit)
+    res = await db.execute(query)
+    return list(res.scalars().all())
+

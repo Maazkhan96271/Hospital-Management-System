@@ -250,6 +250,42 @@ async def run_all_tests():
         assert appt_data["status"] == "Booked"
         print("✅ POST /api/appointments booked appointment successfully with date & time format.")
 
+        # Verify background task queue sent simulated confirmation email
+        from app.services.email_service import get_sent_confirmation_emails
+        sent_emails = get_sent_confirmation_emails()
+        assert len(sent_emails) >= 1
+        latest_email = sent_emails[-1]
+        assert latest_email["appointment_id"] == appointment_id
+        assert latest_email["recipient_email"] == "patient@test.com"
+        assert latest_email["status"] == "DELIVERED"
+        assert "Alice Smith" in latest_email["doctor_name"]
+        print("✅ BackgroundTasks executed: Confirmation email simulated and delivered to patient.")
+
+        # Test Patient Search for Cmd+K Interface (Admin and Doctor access)
+        search_res = await client.get(
+            "/api/v1/users/patients/search?q=Bob",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+        assert search_res.status_code == 200
+        patient_results = search_res.json()
+        assert len(patient_results) >= 1
+        assert patient_results[0]["email"] == "patient@test.com"
+
+        doc_search_res = await client.get(
+            f"/api/v1/users/patients/search?q=#{patient_user.id}",
+            headers={"Authorization": f"Bearer {doctor_token}"},
+        )
+        assert doc_search_res.status_code == 200
+        assert len(doc_search_res.json()) >= 1
+
+        # Patient role forbidden from searching patients
+        unauthorized_search = await client.get(
+            "/api/v1/users/patients/search?q=Bob",
+            headers={"Authorization": f"Bearer {patient_token}"},
+        )
+        assert unauthorized_search.status_code == 403
+        print("✅ Patient search endpoint for Cmd+K interface verified with role-based security.")
+
         # Cross-reference: Verify that 09:30 is now REMOVED from available slots
         updated_slots_res = await client.get(
             f"/api/doctors/{doc_profile.id}/slots?date={monday_str}"

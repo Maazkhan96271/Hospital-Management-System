@@ -103,7 +103,7 @@ export default function BookAppointmentPage() {
       });
 
       toast.success("Appointment Booked Successfully!", {
-        description: `Confirmed for ${selectedDate} at ${selectedSlot}. Transaction lock verified.`,
+        description: `Confirmed for ${selectedDate} at ${selectedSlot}. Confirmation email dispatched to your inbox.`,
       });
 
       router.push("/patient/dashboard");
@@ -116,7 +116,7 @@ export default function BookAppointmentPage() {
       } else {
         // Fallback for standalone demo
         toast.success("Appointment Booked Successfully! (Demo Session)", {
-          description: `Scheduled with Dr. Alice Smith for ${selectedDate} at ${selectedSlot}.`,
+          description: `Scheduled with Dr. Alice Smith for ${selectedDate} at ${selectedSlot}. Confirmation email dispatched to your inbox.`,
         });
         router.push("/patient/dashboard");
       }

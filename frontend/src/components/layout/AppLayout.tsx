@@ -1,20 +1,47 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { useAuth } from "@/context/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { GlobalPatientSearch } from "@/components/search/GlobalPatientSearch";
 import Link from "next/link";
-import { HeartPulse, Bell, CalendarPlus, LogIn } from "lucide-react";
+import {
+  HeartPulse,
+  Bell,
+  CalendarPlus,
+  LogIn,
+  Search,
+  Command,
+} from "lucide-react";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated, role } = useAuth();
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+
+  // Global Cmd+K / Ctrl+K keyboard shortcut listener for Admins & Doctors
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        if (role === "Admin" || role === "Doctor") {
+          e.preventDefault();
+          setIsSearchOpen((prev) => !prev);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [role]);
+
+  const canUsePatientSearch = role === "Admin" || role === "Doctor";
 
   return (
     <div className="min-h-screen bg-slate-50/60 dark:bg-slate-950 flex">
       {/* Persistent / Responsive Sidebar */}
-      <Sidebar />
+      <Sidebar onOpenSearch={() => setIsSearchOpen(true)} canSearch={canUsePatientSearch} />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 lg:pl-72 pt-16 lg:pt-0">
@@ -34,6 +61,27 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Cmd+K Global Search Trigger for Admins & Doctors */}
+            {canUsePatientSearch && (
+              <button
+                type="button"
+                onClick={() => setIsSearchOpen(true)}
+                className="flex items-center gap-2 px-3 py-1.5 text-xs text-slate-500 dark:text-slate-400 bg-slate-100/80 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg border border-slate-200/70 dark:border-slate-700/60 transition-colors shadow-xs"
+                title="Quick patient lookup (⌘K)"
+              >
+                <Search className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
+                <span className="font-medium text-slate-600 dark:text-slate-300">
+                  Search patients...
+                </span>
+                <kbd className="ml-1.5 font-mono text-[10px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-0.5 text-slate-400 shadow-xs">
+                  ⌘K
+                </kbd>
+              </button>
+            )}
+
+            {/* Dark Mode Toggle */}
+            <ThemeToggle />
+
             {isAuthenticated ? (
               <>
                 {role === "Patient" && (
@@ -69,6 +117,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
+
+      {/* Global Cmd+K Patient Search Modal */}
+      {canUsePatientSearch && (
+        <GlobalPatientSearch
+          isOpen={isSearchOpen}
+          onClose={() => setIsSearchOpen(false)}
+        />
+      )}
     </div>
   );
 }

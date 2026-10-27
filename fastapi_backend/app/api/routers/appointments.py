@@ -2,7 +2,7 @@
 
 from datetime import datetime, date as dt_date, time as dt_time
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -13,6 +13,7 @@ from app.models.user import User
 from app.models.doctor_profile import DoctorProfile
 from app.models.appointment import Appointment, AppointmentStatus
 from app.models.treatment_record import TreatmentRecord
+from app.services.email_service import send_appointment_confirmation_email
 from app.schemas.appointment import (
     AppointmentCreate,
     AppointmentOut,
@@ -42,6 +43,7 @@ router = APIRouter(prefix="/appointments", tags=["Appointments"])
 )
 async def book_appointment(
     appt_in: AppointmentCreate,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ) -> AppointmentOut:
@@ -63,7 +65,7 @@ async def book_appointment(
     doc_lock_stmt = (
         select(DoctorProfile)
         .join(User, DoctorProfile.user_id == User.id)
-        .options(selectinload(DoctorProfile.user))
+        .options(selectinload(DoctorProfile.user), selectinload(DoctorProfile.department))
         .filter(DoctorProfile.id == appt_in.doctor_id, User.is_active == True)
         .with_for_update()
     )
@@ -140,7 +142,38 @@ async def book_appointment(
         )
         .filter(Appointment.id == appointment.id)
     )
-    return res.scalar_one()
+    booked_appointment = res.scalar_one()
+
+    # 5. Enqueue background task to simulate confirmation email delivery to the patient
+    patient_email = current_user.email
+    patient_name = f"{current_user.first_name} {current_user.last_name}".strip() or current_user.username
+    if current_user.id != patient_id:
+        p_res = await db.execute(select(User).filter(User.id == patient_id))
+        p_user = p_res.scalar_one_or_none()
+        if p_user:
+            patient_email = p_user.email
+            patient_name = f"{p_user.first_name} {p_user.last_name}".strip() or p_user.username
+
+    doc_full_name = (
+        f"Dr. {doctor.user.first_name} {doctor.user.last_name}".strip()
+        if doctor.user and (doctor.user.first_name or doctor.user.last_name)
+        else (f"Dr. {doctor.user.username}" if doctor.user else f"Doctor #{doctor.id}")
+    )
+    dept_title = doctor.department.name if doctor.department else None
+
+    background_tasks.add_task(
+        send_appointment_confirmation_email,
+        patient_email=patient_email,
+        patient_name=patient_name,
+        doctor_name=doc_full_name,
+        department_name=dept_title,
+        appointment_id=booked_appointment.id,
+        appointment_datetime=booked_appointment.appointment_datetime,
+        duration_minutes=booked_appointment.duration_minutes,
+        notes=booked_appointment.notes,
+    )
+
+    return booked_appointment
 
 
 @router.post(
