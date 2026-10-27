@@ -9,14 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Dialog,
   DialogContent,
@@ -25,6 +18,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
+import { DataTable, ColumnDef } from "@/components/ui/data-table";
 import {
   FlaskConical,
   CheckCircle2,
@@ -42,6 +43,10 @@ import {
   Send,
   Loader2,
   Sparkles,
+  ChevronRight,
+  Mail,
+  Phone,
+  ClipboardList,
 } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch, ApiError } from "@/lib/api";
@@ -67,6 +72,8 @@ interface LabOrder {
   lab_test?: LabTestDetails;
   patient_id?: number;
   patient_name?: string;
+  patient_email?: string;
+  patient_phone?: string;
   doctor_name?: string;
 }
 
@@ -81,6 +88,8 @@ const FALLBACK_LAB_ORDERS: LabOrder[] = [
     ordered_at: "Today, 09:15 AM",
     patient_id: 2,
     patient_name: "Bob Jones",
+    patient_email: "bob.jones@example.com",
+    patient_phone: "+1 (555) 234-5678",
     doctor_name: "Dr. Alice Smith",
     lab_test: {
       id: 1,
@@ -100,6 +109,8 @@ const FALLBACK_LAB_ORDERS: LabOrder[] = [
     ordered_at: "Today, 10:00 AM",
     patient_id: 4,
     patient_name: "Jane Doe",
+    patient_email: "jane.doe@example.com",
+    patient_phone: "+1 (555) 345-6789",
     doctor_name: "Dr. David Johnson",
     lab_test: {
       id: 2,
@@ -121,6 +132,8 @@ const FALLBACK_LAB_ORDERS: LabOrder[] = [
     completed_at: "Yesterday, 04:45 PM",
     patient_id: 5,
     patient_name: "Sophia Martinez",
+    patient_email: "sophia.m@example.com",
+    patient_phone: "+1 (555) 456-7890",
     doctor_name: "Dr. Alice Smith",
     lab_test: {
       id: 4,
@@ -137,7 +150,6 @@ export default function LabPortalPage() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"pending" | "completed" | "all">("pending");
-  const [searchQuery, setSearchQuery] = useState("");
 
   // Lab orders state
   const [labOrders, setLabOrders] = useState<LabOrder[]>([]);
@@ -147,6 +159,16 @@ export default function LabPortalPage() {
   const [resultInput, setResultInput] = useState("");
   const [technicianNotes, setTechnicianNotes] = useState("");
   const [isSubmittingResult, setIsSubmittingResult] = useState(false);
+
+  // Patient Profile Slide-out Sheet
+  const [selectedPatientForSheet, setSelectedPatientForSheet] = useState<{
+    id: number;
+    name: string;
+    email?: string;
+    phone?: string;
+    orders: LabOrder[];
+  } | null>(null);
+  const [isPatientSheetOpen, setIsPatientSheetOpen] = useState(false);
 
   // Load orders from FastAPI
   const fetchOrders = async () => {
@@ -181,27 +203,31 @@ export default function LabPortalPage() {
   );
 
   const displayedOrders = useMemo(() => {
-    let list = labOrders;
-    if (activeTab === "pending") list = pendingOrders;
-    if (activeTab === "completed") list = completedOrders;
-
-    if (!searchQuery.trim()) return list;
-    const q = searchQuery.toLowerCase();
-    return list.filter(
-      (o) =>
-        (o.patient_name && o.patient_name.toLowerCase().includes(q)) ||
-        (o.doctor_name && o.doctor_name.toLowerCase().includes(q)) ||
-        (o.lab_test?.name && o.lab_test.name.toLowerCase().includes(q)) ||
-        (o.lab_test?.category && o.lab_test.category.toLowerCase().includes(q)) ||
-        (o.results && o.results.toLowerCase().includes(q))
-    );
-  }, [activeTab, labOrders, pendingOrders, completedOrders, searchQuery]);
+    if (activeTab === "pending") return pendingOrders;
+    if (activeTab === "completed") return completedOrders;
+    return labOrders;
+  }, [activeTab, labOrders, pendingOrders, completedOrders]);
 
   // Open modal to enter results
   const openResultModal = (order: LabOrder) => {
     setSelectedOrder(order);
     setResultInput(order.results || "");
     setTechnicianNotes(order.notes || "Specimen verified. Quality control passed.");
+  };
+
+  // Open slide-out sheet for patient's diagnostic profile
+  const openPatientProfile = (order: LabOrder) => {
+    const patientId = order.patient_id || 0;
+    const patientOrders = labOrders.filter((o) => o.patient_id === patientId);
+
+    setSelectedPatientForSheet({
+      id: patientId,
+      name: order.patient_name || `Patient #${patientId}`,
+      email: order.patient_email,
+      phone: order.patient_phone,
+      orders: patientOrders.length > 0 ? patientOrders : [order],
+    });
+    setIsPatientSheetOpen(true);
   };
 
   // Submit test results and mark order completed
@@ -216,7 +242,7 @@ export default function LabPortalPage() {
 
     setIsSubmittingResult(true);
     try {
-      const updated = await apiFetch<LabOrder>(`/api/lab/orders/${selectedOrder.id}/complete`, {
+      await apiFetch<LabOrder>(`/api/lab/orders/${selectedOrder.id}/complete`, {
         method: "POST",
         body: JSON.stringify({
           results: resultInput.trim(),
@@ -252,6 +278,164 @@ export default function LabPortalPage() {
       setIsSubmittingResult(false);
     }
   };
+
+  // =========================================================================
+  // COLUMNS: LABORATORY ORDERS DATA TABLE
+  // =========================================================================
+  const columns = useMemo<ColumnDef<LabOrder>[]>(
+    () => [
+      {
+        accessorKey: "id",
+        header: "Order #",
+        sortable: true,
+        cell: (row: LabOrder) => (
+          <span className="font-mono text-xs font-bold text-slate-700 dark:text-slate-300">
+            #{row.id}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "patient_name",
+        header: "Patient",
+        sortable: true,
+        cell: (row: LabOrder) => (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              openPatientProfile(row);
+            }}
+            className="text-left group flex items-center gap-2.5 hover:opacity-80 transition-opacity cursor-pointer"
+          >
+            <Avatar className="h-8 w-8 border border-amber-200 dark:border-amber-800">
+              <AvatarFallback className="bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 font-bold text-xs">
+                {(row.patient_name || "PT").slice(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <div className="font-bold text-sm text-slate-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors flex items-center gap-1.5">
+                {row.patient_name || `Patient #${row.patient_id}`}
+                <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+              {row.ordered_at && (
+                <div className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
+                  <Calendar className="h-3 w-3" />
+                  {row.ordered_at}
+                </div>
+              )}
+            </div>
+          </button>
+        ),
+      },
+      {
+        accessorKey: "lab_test.name",
+        header: "Investigation Test",
+        sortable: true,
+        accessorFn: (row: LabOrder) => row.lab_test?.name || "",
+        cell: (row: LabOrder) => (
+          <div>
+            <div className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-1.5">
+              <FlaskConical className="h-3.5 w-3.5 text-amber-600" />
+              {row.lab_test?.name || `Test #${row.lab_test_id}`}
+            </div>
+            {row.lab_test?.category && (
+              <Badge variant="secondary" className="text-[10px] mt-0.5">
+                {row.lab_test.category}
+              </Badge>
+            )}
+          </div>
+        ),
+      },
+      {
+        accessorKey: "doctor_name",
+        header: "Ordering Physician",
+        sortable: true,
+        cell: (row: LabOrder) => (
+          <span className="text-xs text-slate-600 dark:text-slate-300 font-medium">
+            {row.doctor_name || "Hospital Staff"}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "status",
+        header: "Status",
+        sortable: true,
+        cell: (row: LabOrder) => {
+          const isPending = row.status === "Pending";
+          return (
+            <Badge
+              className={
+                isPending
+                  ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-0 text-[10px] font-bold"
+                  : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-0 text-[10px] font-bold"
+              }
+            >
+              {isPending ? (
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1 animate-pulse"></span>
+              ) : (
+                <CheckCircle2 className="h-3 w-3 mr-1 text-emerald-600" />
+              )}
+              {row.status}
+            </Badge>
+          );
+        },
+      },
+      {
+        accessorKey: "results",
+        header: "Findings / Reference Range",
+        cell: (row: LabOrder) => (
+          <div className="max-w-xs text-xs">
+            {row.results ? (
+              <div className="p-2 rounded-lg bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/40 text-emerald-950 dark:text-emerald-200 font-mono text-[11px] line-clamp-2">
+                {row.results}
+              </div>
+            ) : (
+              <div className="text-slate-500 text-[11px]">
+                <span className="font-semibold text-slate-400">Ref Range: </span>
+                {row.lab_test?.normal_range || "Standard assay criteria"}
+              </div>
+            )}
+          </div>
+        ),
+      },
+      {
+        accessorKey: "appointment_id",
+        header: "Action",
+        align: "right",
+        cell: (row: LabOrder) => (
+          <div className="flex items-center justify-end">
+            {row.status === "Pending" ? (
+              <Button
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openResultModal(row);
+                }}
+                className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs gap-1.5 h-8 shadow-xs"
+              >
+                <FileText className="h-3.5 w-3.5" />
+                Input Results
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openResultModal(row);
+                }}
+                className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 h-8 gap-1"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                View / Edit
+              </Button>
+            )}
+          </div>
+        ),
+      },
+    ],
+    []
+  );
 
   return (
     <div className="space-y-8">
@@ -294,7 +478,7 @@ export default function LabPortalPage() {
         </div>
       </div>
 
-      {/* KPI Cards */}
+      {/* KPI Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="border-amber-200/80 dark:border-amber-900/40 bg-amber-50/30 dark:bg-amber-950/20 shadow-xs">
           <CardContent className="p-5 flex items-center justify-between">
@@ -367,203 +551,211 @@ export default function LabPortalPage() {
         </Card>
       </div>
 
-      {/* Filter Tabs and Search Bar */}
+      {/* Filter Tabs and DataTable */}
       <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl w-full sm:w-auto">
-            <button
-              type="button"
-              onClick={() => setActiveTab("pending")}
-              className={`flex-1 sm:flex-initial py-2 px-4 rounded-lg text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
-                activeTab === "pending"
-                  ? "bg-white dark:bg-slate-900 text-amber-600 dark:text-amber-400 shadow-xs"
-                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
-              }`}
-            >
-              <Clock className="h-3.5 w-3.5" />
-              <span>Pending Orders</span>
-              {pendingOrders.length > 0 && (
-                <Badge variant="destructive" className="text-[10px] bg-amber-500 text-white">
-                  {pendingOrders.length}
-                </Badge>
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab("completed")}
-              className={`flex-1 sm:flex-initial py-2 px-4 rounded-lg text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
-                activeTab === "completed"
-                  ? "bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-xs"
-                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
-              }`}
-            >
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              <span>Completed Findings</span>
-              <Badge variant="secondary" className="text-[10px]">
-                {completedOrders.length}
+        <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl w-full sm:w-auto">
+          <button
+            type="button"
+            onClick={() => setActiveTab("pending")}
+            className={`flex-1 sm:flex-initial py-2 px-4 rounded-lg text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === "pending"
+                ? "bg-white dark:bg-slate-900 text-amber-600 dark:text-amber-400 shadow-xs"
+                : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+            }`}
+          >
+            <Clock className="h-3.5 w-3.5" />
+            <span>Pending Orders</span>
+            {pendingOrders.length > 0 && (
+              <Badge variant="destructive" className="text-[10px] bg-amber-500 text-white">
+                {pendingOrders.length}
               </Badge>
-            </button>
+            )}
+          </button>
 
-            <button
-              type="button"
-              onClick={() => setActiveTab("all")}
-              className={`flex-1 sm:flex-initial py-2 px-4 rounded-lg text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
-                activeTab === "all"
-                  ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs"
-                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
-              }`}
-            >
-              <Layers className="h-3.5 w-3.5" />
-              <span>All Orders ({labOrders.length})</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setActiveTab("completed")}
+            className={`flex-1 sm:flex-initial py-2 px-4 rounded-lg text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === "completed"
+                ? "bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-xs"
+                : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+            }`}
+          >
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            <span>Completed Findings</span>
+            <Badge variant="secondary" className="text-[10px]">
+              {completedOrders.length}
+            </Badge>
+          </button>
 
-          <div className="relative w-full sm:w-72">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-            <Input
-              placeholder="Search test, patient, doctor, result..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 text-xs h-9"
-            />
-          </div>
+          <button
+            type="button"
+            onClick={() => setActiveTab("all")}
+            className={`flex-1 sm:flex-initial py-2 px-4 rounded-lg text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === "all"
+                ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs"
+                : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+            }`}
+          >
+            <Layers className="h-3.5 w-3.5" />
+            <span>All Orders ({labOrders.length})</span>
+          </button>
         </div>
 
-        {/* Orders Table */}
+        {/* Advanced Orders DataTable */}
         <Card className="border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-slate-50 dark:bg-slate-900/60">
-                  <TableHead className="text-xs font-bold uppercase">Order #</TableHead>
-                  <TableHead className="text-xs font-bold uppercase">Patient</TableHead>
-                  <TableHead className="text-xs font-bold uppercase">Investigation Test</TableHead>
-                  <TableHead className="text-xs font-bold uppercase">Ordering Physician</TableHead>
-                  <TableHead className="text-xs font-bold uppercase">Status</TableHead>
-                  <TableHead className="text-xs font-bold uppercase">Findings / Reference Range</TableHead>
-                  <TableHead className="text-xs font-bold uppercase text-right">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  Array.from({ length: 4 }).map((_, i) => (
-                    <TableRow key={i}>
-                      <TableCell colSpan={7} className="py-4">
-                        <Skeleton className="h-8 rounded-lg" />
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : displayedOrders.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-10 text-xs text-slate-400">
-                      No laboratory orders found matching the selected filter.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  displayedOrders.map((order) => {
-                    const isPending = order.status === "Pending";
-                    return (
-                      <TableRow
-                        key={order.id}
-                        className={`hover:bg-slate-50/70 dark:hover:bg-slate-800/40 ${
-                          isPending ? "bg-amber-50/20 dark:bg-amber-950/10" : ""
-                        }`}
-                      >
-                        {/* Order ID */}
-                        <TableCell className="font-mono text-xs font-bold text-slate-700 dark:text-slate-300">
-                          #{order.id}
-                        </TableCell>
-
-                        {/* Patient info */}
-                        <TableCell>
-                          <div className="font-bold text-sm text-slate-900 dark:text-white">
-                            {order.patient_name || `Patient #${order.patient_id}`}
-                          </div>
-                          {order.ordered_at && (
-                            <span className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
-                              <Calendar className="h-3 w-3" /> {order.ordered_at}
-                            </span>
-                          )}
-                        </TableCell>
-
-                        {/* Lab Test */}
-                        <TableCell>
-                          <div className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-1.5">
-                            <FlaskConical className="h-3.5 w-3.5 text-amber-600" />
-                            {order.lab_test?.name || `Lab Test #${order.lab_test_id}`}
-                          </div>
-                          {order.lab_test?.category && (
-                            <Badge variant="secondary" className="text-[10px] mt-0.5">
-                              {order.lab_test.category}
-                            </Badge>
-                          )}
-                        </TableCell>
-
-                        {/* Physician */}
-                        <TableCell className="text-xs text-slate-600 dark:text-slate-300 font-medium">
-                          {order.doctor_name || "Hospital Staff"}
-                        </TableCell>
-
-                        {/* Status badge */}
-                        <TableCell>
-                          <Badge
-                            className={
-                              isPending
-                                ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-0 text-[10px] font-bold"
-                                : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-0 text-[10px] font-bold"
-                            }
-                          >
-                            {order.status}
-                          </Badge>
-                        </TableCell>
-
-                        {/* Findings / Reference Range */}
-                        <TableCell className="max-w-xs text-xs">
-                          {order.results ? (
-                            <div className="p-2 rounded-lg bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/40 text-emerald-950 dark:text-emerald-200 font-mono text-[11px]">
-                              {order.results}
-                            </div>
-                          ) : (
-                            <div className="text-slate-500 text-[11px]">
-                              <span className="font-semibold text-slate-400">Ref Range: </span>
-                              {order.lab_test?.normal_range || "Standard assay criteria"}
-                            </div>
-                          )}
-                        </TableCell>
-
-                        {/* Actions */}
-                        <TableCell className="text-right">
-                          {isPending ? (
-                            <Button
-                              size="sm"
-                              onClick={() => openResultModal(order)}
-                              className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs gap-1.5 h-8 shadow-xs"
-                            >
-                              <FileText className="h-3.5 w-3.5" />
-                              Input Results
-                            </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => openResultModal(order)}
-                              className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 h-8 gap-1"
-                            >
-                              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                              View / Edit
-                            </Button>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
+          <CardContent className="p-4">
+            <DataTable
+              columns={columns}
+              data={displayedOrders}
+              searchPlaceholder="Search test name, patient, doctor, findings..."
+              emptyMessage="No laboratory diagnostic orders found for this view."
+              onRowClick={(row) => openPatientProfile(row)}
+              pageSizeOptions={[5, 10, 20]}
+              defaultPageSize={10}
+              isLoading={loading}
+            />
           </CardContent>
         </Card>
       </div>
+
+      {/* ========================================================================= */}
+      {/* SLIDE-OUT SHEET: PATIENT DIAGNOSTIC PROFILE                               */}
+      {/* ========================================================================= */}
+      <Sheet open={isPatientSheetOpen} onOpenChange={setIsPatientSheetOpen}>
+        <SheetContent className="w-full sm:max-w-xl overflow-y-auto p-0 flex flex-col bg-white dark:bg-slate-900">
+          {selectedPatientForSheet && (
+            <div className="flex-1 flex flex-col justify-between">
+              <div>
+                {/* Header Profile Banner */}
+                <div className="p-6 border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-3.5">
+                      <Avatar className="h-12 w-12 border-2 border-amber-500/30">
+                        <AvatarFallback className="bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 font-black text-sm">
+                          {selectedPatientForSheet.name.slice(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <SheetTitle className="text-xl font-black text-slate-900 dark:text-white">
+                            {selectedPatientForSheet.name}
+                          </SheetTitle>
+                          <Badge variant="outline" className="text-[10px] font-mono">
+                            ID: #{selectedPatientForSheet.id}
+                          </Badge>
+                        </div>
+                        <SheetDescription className="text-xs text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
+                          {selectedPatientForSheet.email && (
+                            <span className="flex items-center gap-1">
+                              <Mail className="h-3 w-3" />
+                              {selectedPatientForSheet.email}
+                            </span>
+                          )}
+                          {selectedPatientForSheet.phone && (
+                            <>
+                              <span>•</span>
+                              <span className="flex items-center gap-1">
+                                <Phone className="h-3 w-3" />
+                                {selectedPatientForSheet.phone}
+                              </span>
+                            </>
+                          )}
+                        </SheetDescription>
+                      </div>
+                    </div>
+
+                    <Badge variant="outline" className="text-xs font-mono font-bold">
+                      {selectedPatientForSheet.orders.length} Lab Orders
+                    </Badge>
+                  </div>
+                </div>
+
+                {/* Patient Diagnostic Findings History */}
+                <div className="p-6 space-y-6">
+                  <div className="space-y-3">
+                    <Label className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                      <ClipboardList className="h-3.5 w-3.5 text-amber-600" />
+                      Laboratory Findings History
+                    </Label>
+
+                    <div className="space-y-3">
+                      {selectedPatientForSheet.orders.map((ord) => (
+                        <Card
+                          key={ord.id}
+                          className="p-4 border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900/60 shadow-xs"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <FlaskConical className="h-4 w-4 text-amber-600" />
+                              <span className="font-bold text-sm text-slate-900 dark:text-white">
+                                {ord.lab_test?.name || `Lab Test #${ord.lab_test_id}`}
+                              </span>
+                            </div>
+                            <Badge
+                              className={
+                                ord.status === "Completed"
+                                  ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-0 text-[10px]"
+                                  : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-0 text-[10px]"
+                              }
+                            >
+                              {ord.status}
+                            </Badge>
+                          </div>
+
+                          <div className="mt-2 text-xs text-slate-500 flex items-center justify-between">
+                            <span>Ordered by <strong>{ord.doctor_name || "Doctor"}</strong></span>
+                            <span>{ord.ordered_at || "Recent"}</span>
+                          </div>
+
+                          {ord.results ? (
+                            <div className="mt-2 p-2.5 rounded-lg bg-emerald-50/80 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/40 text-xs font-mono text-emerald-950 dark:text-emerald-200">
+                              <span className="font-bold text-[10px] block text-emerald-700 uppercase mb-0.5">Report Findings:</span>
+                              {ord.results}
+                            </div>
+                          ) : (
+                            <div className="mt-2 p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-xs text-slate-500">
+                              Awaiting analytical results. Normal range: {ord.lab_test?.normal_range || "Standard"}
+                            </div>
+                          )}
+
+                          {ord.status === "Pending" && (
+                            <div className="mt-3 flex justify-end">
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  setIsPatientSheetOpen(false);
+                                  openResultModal(ord);
+                                }}
+                                className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs gap-1 h-7"
+                              >
+                                <FileText className="h-3 w-3" />
+                                Record Test Results
+                              </Button>
+                            </div>
+                          )}
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom Actions */}
+              <div className="p-4 border-t border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/60 flex items-center justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsPatientSheetOpen(false)}
+                  className="text-xs"
+                >
+                  Close Profile
+                </Button>
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
 
       {/* ========================================================================= */}
       {/* DIALOG: INPUT TEST RESULTS MODAL                                          */}
