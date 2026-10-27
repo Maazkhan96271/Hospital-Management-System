@@ -9,14 +9,14 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DataTable, Column } from "@/components/ui/data-table";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 import {
   Dialog,
   DialogContent,
@@ -48,6 +48,7 @@ import {
   ArrowUpRight,
   Loader2,
   Sparkles,
+  Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch, ApiError } from "@/lib/api";
@@ -146,11 +147,12 @@ export default function BillingInvoicingPage() {
   const [loading, setLoading] = useState(true);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [activeTab, setActiveTab] = useState<"all" | "unpaid" | "paid" | "partial">("all");
-  const [searchQuery, setSearchQuery] = useState("");
 
-  // Modal states: Itemized Invoice details & Payment recording
+  // Slide-out Sheet and Payment modal states
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
+
   const [paymentMethod, setPaymentMethod] = useState("Credit Card");
   const [paymentAmount, setPaymentAmount] = useState<number>(0);
   const [cashierNotes, setCashierNotes] = useState("");
@@ -179,23 +181,13 @@ export default function BillingInvoicingPage() {
     fetchInvoices();
   }, []);
 
-  // Filtered invoices by status & search
-  const filteredInvoices = useMemo(() => {
-    let list = invoices;
-    if (activeTab === "unpaid") list = invoices.filter((i) => i.payment_status === "Unpaid");
-    if (activeTab === "paid") list = invoices.filter((i) => i.payment_status === "Paid");
-    if (activeTab === "partial") list = invoices.filter((i) => i.payment_status === "Partial");
-
-    if (!searchQuery.trim()) return list;
-    const q = searchQuery.toLowerCase();
-    return list.filter(
-      (inv) =>
-        inv.invoice_number.toLowerCase().includes(q) ||
-        (inv.patient_name && inv.patient_name.toLowerCase().includes(q)) ||
-        (inv.doctor_name && inv.doctor_name.toLowerCase().includes(q)) ||
-        (inv.payment_method && inv.payment_method.toLowerCase().includes(q))
-    );
-  }, [invoices, activeTab, searchQuery]);
+  // Filtered invoices by active status tab
+  const tabFilteredInvoices = useMemo(() => {
+    if (activeTab === "unpaid") return invoices.filter((i) => i.payment_status === "Unpaid");
+    if (activeTab === "paid") return invoices.filter((i) => i.payment_status === "Paid");
+    if (activeTab === "partial") return invoices.filter((i) => i.payment_status === "Partial");
+    return invoices;
+  }, [invoices, activeTab]);
 
   // Aggregate Financial Statistics
   const totalBilled = useMemo(
@@ -215,6 +207,41 @@ export default function BillingInvoicingPage() {
     [invoices]
   );
 
+  // Status Badge Renderer with color coding
+  const renderStatusBadge = (status: string) => {
+    switch (status) {
+      case "Paid":
+        return (
+          <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-0 font-bold text-[10px] gap-1">
+            <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+            Paid
+          </Badge>
+        );
+      case "Partial":
+        return (
+          <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-0 font-bold text-[10px] gap-1">
+            <Clock className="h-3 w-3 text-amber-600" />
+            Partial
+          </Badge>
+        );
+      case "Unpaid":
+        return (
+          <Badge className="bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 border-0 font-bold text-[10px] gap-1">
+            <AlertCircle className="h-3 w-3 text-red-600" />
+            Unpaid
+          </Badge>
+        );
+      default:
+        return <Badge variant="secondary">{status}</Badge>;
+    }
+  };
+
+  // Open Slide-out Sheet for invoice inspection
+  const handleOpenSheet = (inv: Invoice) => {
+    setSelectedInvoice(inv);
+    setIsSheetOpen(true);
+  };
+
   // Open Record Payment Modal
   const openPaymentModal = (invoice: Invoice) => {
     setSelectedInvoice(invoice);
@@ -230,7 +257,7 @@ export default function BillingInvoicingPage() {
     if (!selectedInvoice) return;
     setIsRecordingPayment(true);
     try {
-      const updated = await apiFetch<Invoice>(`/api/invoices/${selectedInvoice.id}/pay`, {
+      await apiFetch<Invoice>(`/api/invoices/${selectedInvoice.id}/pay`, {
         method: "POST",
         body: JSON.stringify({
           payment_method: paymentMethod,
@@ -258,7 +285,6 @@ export default function BillingInvoicingPage() {
         )
       );
 
-      // Update active modal selected invoice
       setSelectedInvoice((prev) =>
         prev
           ? {
@@ -304,18 +330,120 @@ export default function BillingInvoicingPage() {
       link.remove();
 
       toast.success("Official PDF Receipt Downloaded", {
-        description: `Branded medical receipt receipt_${invoiceNum}.pdf saved to your device.`,
+        description: `Branded medical receipt receipt_${invoiceNum}.pdf saved.`,
       });
     } catch (err: any) {
-      // Fallback: trigger browser print
       toast.info("Opening Printable Receipt View", {
-        description: "Launching browser print engine for branded receipt.",
+        description: "Launching browser print engine for receipt.",
       });
       window.print();
     } finally {
       setIsDownloadingPdf(false);
     }
   };
+
+  // DataTable column definitions
+  const columns: Column<Invoice>[] = [
+    {
+      header: "Invoice #",
+      accessorKey: "invoice_number",
+      sortable: true,
+      className: "font-mono font-bold text-blue-600 dark:text-blue-400 w-36",
+    },
+    {
+      header: "Patient",
+      accessorFn: (row) => row.patient_name || `Patient #${row.patient_id}`,
+      sortable: true,
+      cell: (row) => (
+        <div>
+          <span className="font-bold text-xs text-slate-900 dark:text-white">
+            {row.patient_name || `Patient #${row.patient_id}`}
+          </span>
+          <span className="block text-[11px] text-slate-400">ID: #{row.patient_id}</span>
+        </div>
+      ),
+    },
+    {
+      header: "Attending Doctor",
+      accessorKey: "doctor_name",
+      sortable: true,
+      cell: (row) => (
+        <span className="font-medium text-slate-700 dark:text-slate-300">
+          {row.doctor_name || "Hospital Staff"}
+        </span>
+      ),
+    },
+    {
+      header: "Issued Date",
+      accessorKey: "issued_date",
+      sortable: true,
+      className: "font-mono text-slate-500",
+      cell: (row) => row.issued_date || "Today",
+    },
+    {
+      header: "Status",
+      accessorKey: "payment_status",
+      sortable: true,
+      cell: (row) => renderStatusBadge(row.payment_status),
+    },
+    {
+      header: "Payment Method",
+      accessorKey: "payment_method",
+      sortable: true,
+      cell: (row) => row.payment_method || <span className="text-slate-400 italic">Unsettled</span>,
+    },
+    {
+      header: "Billed Total",
+      accessorKey: "total_amount",
+      sortable: true,
+      headerClassName: "text-right",
+      className: "text-right font-mono font-black text-slate-900 dark:text-white text-sm",
+      cell: (row) => `$${row.total_amount.toFixed(2)}`,
+    },
+    {
+      header: "Actions",
+      sortable: false,
+      headerClassName: "text-right",
+      className: "text-right",
+      cell: (row) => (
+        <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => handleOpenSheet(row)}
+            className="text-xs font-semibold h-8 gap-1"
+          >
+            <Eye className="h-3.5 w-3.5" />
+            Breakdown
+          </Button>
+
+          {row.payment_status !== "Paid" && (
+            <Button
+              size="sm"
+              onClick={() => openPaymentModal(row)}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-1 h-8 shadow-xs"
+            >
+              <CreditCard className="h-3 w-3" />
+              Pay
+            </Button>
+          )}
+
+          {row.payment_status === "Paid" && (
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={isDownloadingPdf}
+              onClick={() => handleDownloadPdf(row.id, row.invoice_number)}
+              className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 h-8 gap-1"
+            >
+              <Download className="h-3 w-3" />
+              PDF
+            </Button>
+          )}
+        </div>
+      ),
+    },
+  ];
 
   return (
     <div className="space-y-8">
@@ -433,401 +561,224 @@ export default function BillingInvoicingPage() {
         </Card>
       </div>
 
-      {/* Filter Tabs and Search Bar */}
-      <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          {/* Status Tabs */}
-          <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl w-full sm:w-auto">
-            <button
-              type="button"
-              onClick={() => setActiveTab("all")}
-              className={`flex-1 sm:flex-initial py-2 px-4 rounded-lg text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
-                activeTab === "all"
-                  ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xs"
-                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
-              }`}
-            >
-              <Layers className="h-3.5 w-3.5" />
-              <span>All Invoices</span>
-              <Badge variant="secondary" className="text-[10px]">
-                {invoices.length}
-              </Badge>
-            </button>
+      {/* Tabs Filter Bar */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+        <button
+          type="button"
+          onClick={() => setActiveTab("all")}
+          className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+            activeTab === "all"
+              ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 shadow-xs"
+              : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+          }`}
+        >
+          <Layers className="h-3.5 w-3.5" />
+          <span>All Invoices</span>
+          <Badge variant="secondary" className="text-[10px] font-mono">
+            {invoices.length}
+          </Badge>
+        </button>
 
-            <button
-              type="button"
-              onClick={() => setActiveTab("unpaid")}
-              className={`flex-1 sm:flex-initial py-2 px-4 rounded-lg text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
-                activeTab === "unpaid"
-                  ? "bg-white dark:bg-slate-900 text-red-600 dark:text-red-400 shadow-xs"
-                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
-              }`}
-            >
-              <AlertCircle className="h-3.5 w-3.5 text-red-500" />
-              <span>Unpaid</span>
-              {invoices.filter((i) => i.payment_status === "Unpaid").length > 0 && (
-                <Badge variant="destructive" className="text-[10px] bg-red-600 text-white">
-                  {invoices.filter((i) => i.payment_status === "Unpaid").length}
-                </Badge>
-              )}
-            </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("unpaid")}
+          className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+            activeTab === "unpaid"
+              ? "bg-red-600 text-white shadow-xs"
+              : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+          }`}
+        >
+          <AlertCircle className="h-3.5 w-3.5" />
+          <span>Unpaid</span>
+          {invoices.filter((i) => i.payment_status === "Unpaid").length > 0 && (
+            <Badge variant="destructive" className="text-[10px] bg-red-600 text-white font-mono">
+              {invoices.filter((i) => i.payment_status === "Unpaid").length}
+            </Badge>
+          )}
+        </button>
 
-            <button
-              type="button"
-              onClick={() => setActiveTab("paid")}
-              className={`flex-1 sm:flex-initial py-2 px-4 rounded-lg text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
-                activeTab === "paid"
-                  ? "bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-xs"
-                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
-              }`}
-            >
-              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-              <span>Paid ({paidCount})</span>
-            </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab("paid")}
+          className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+            activeTab === "paid"
+              ? "bg-emerald-600 text-white shadow-xs"
+              : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+          }`}
+        >
+          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+          <span>Paid ({paidCount})</span>
+        </button>
 
-            <button
-              type="button"
-              onClick={() => setActiveTab("partial")}
-              className={`flex-1 sm:flex-initial py-2 px-4 rounded-lg text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
-                activeTab === "partial"
-                  ? "bg-white dark:bg-slate-900 text-amber-600 dark:text-amber-400 shadow-xs"
-                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
-              }`}
-            >
-              <Clock className="h-3.5 w-3.5 text-amber-500" />
-              <span>Partial</span>
-            </button>
-          </div>
-
-          {/* Search Input */}
-          <div className="relative w-full sm:w-72">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-            <Input
-              placeholder="Search invoice #, patient, doctor..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 text-xs h-9"
-            />
-          </div>
-        </div>
-
-        {/* Invoices Data Table */}
-        <Card className="border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-slate-50 dark:bg-slate-900/60">
-                  <TableHead className="text-xs font-bold uppercase w-36">Invoice #</TableHead>
-                  <TableHead className="text-xs font-bold uppercase">Patient</TableHead>
-                  <TableHead className="text-xs font-bold uppercase">Attending Doctor</TableHead>
-                  <TableHead className="text-xs font-bold uppercase">Issued Date</TableHead>
-                  <TableHead className="text-xs font-bold uppercase">Status</TableHead>
-                  <TableHead className="text-xs font-bold uppercase">Payment Mode</TableHead>
-                  <TableHead className="text-xs font-bold uppercase text-right">Total Amount</TableHead>
-                  <TableHead className="text-xs font-bold uppercase text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  Array.from({ length: 4 }).map((_, i) => (
-                    <TableRow key={i}>
-                      <TableCell colSpan={8} className="py-4">
-                        <Skeleton className="h-8 rounded-lg" />
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : filteredInvoices.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="text-center py-10 text-xs text-slate-400">
-                      No invoices found matching the current filter.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredInvoices.map((inv) => {
-                    const isPaid = inv.payment_status === "Paid";
-                    const isPartial = inv.payment_status === "Partial";
-
-                    return (
-                      <TableRow
-                        key={inv.id}
-                        className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors"
-                      >
-                        {/* Invoice Number */}
-                        <TableCell className="font-mono text-xs font-bold text-blue-600 dark:text-blue-400">
-                          {inv.invoice_number}
-                        </TableCell>
-
-                        {/* Patient */}
-                        <TableCell>
-                          <div className="font-bold text-sm text-slate-900 dark:text-white">
-                            {inv.patient_name || `Patient #${inv.patient_id}`}
-                          </div>
-                          <span className="text-[11px] text-slate-400">ID: #{inv.patient_id}</span>
-                        </TableCell>
-
-                        {/* Attending Doctor */}
-                        <TableCell className="text-xs text-slate-600 dark:text-slate-300 font-medium">
-                          {inv.doctor_name || "Hospital Staff"}
-                        </TableCell>
-
-                        {/* Issued Date */}
-                        <TableCell className="text-xs text-slate-500 font-mono">
-                          {inv.issued_date || "Today"}
-                        </TableCell>
-
-                        {/* Payment Status Badge */}
-                        <TableCell>
-                          <Badge
-                            className={
-                              isPaid
-                                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-0 text-[10px] font-bold"
-                                : isPartial
-                                ? "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-0 text-[10px] font-bold"
-                                : "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 border-0 text-[10px] font-bold"
-                            }
-                          >
-                            {inv.payment_status}
-                          </Badge>
-                        </TableCell>
-
-                        {/* Payment Mode */}
-                        <TableCell className="text-xs font-medium text-slate-600 dark:text-slate-300">
-                          {inv.payment_method || <span className="text-slate-400 italic">Pending</span>}
-                        </TableCell>
-
-                        {/* Total Amount */}
-                        <TableCell className="text-right font-mono text-sm font-black text-slate-900 dark:text-white">
-                          ${inv.total_amount.toFixed(2)}
-                        </TableCell>
-
-                        {/* Actions */}
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setSelectedInvoice(inv)}
-                              className="text-xs font-semibold h-8 gap-1"
-                            >
-                              <FileText className="h-3 w-3" />
-                              Breakdown
-                            </Button>
-
-                            {!isPaid && (
-                              <Button
-                                size="sm"
-                                onClick={() => openPaymentModal(inv)}
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-1 h-8 shadow-xs"
-                              >
-                                <CreditCard className="h-3 w-3" />
-                                Record Pay
-                              </Button>
-                            )}
-
-                            {isPaid && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => handleDownloadPdf(inv.id, inv.invoice_number)}
-                                className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 h-8 gap-1"
-                              >
-                                <Download className="h-3 w-3" />
-                                PDF
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+        <button
+          type="button"
+          onClick={() => setActiveTab("partial")}
+          className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
+            activeTab === "partial"
+              ? "bg-amber-600 text-white shadow-xs"
+              : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+          }`}
+        >
+          <Clock className="h-3.5 w-3.5 text-amber-500" />
+          <span>Partial</span>
+        </button>
       </div>
 
+      {/* Advanced Data Table with Sorting, Search, and Pagination */}
+      <DataTable
+        columns={columns}
+        data={tabFilteredInvoices}
+        searchPlaceholder="Instant search invoice #, patient, doctor..."
+        searchableKeys={["invoice_number", "patient_name", "doctor_name", "payment_method"]}
+        defaultPageSize={10}
+        isLoading={loading}
+        onRowClick={(row) => handleOpenSheet(row)}
+      />
+
       {/* ========================================================================= */}
-      {/* DIALOG 1: ITEMIZED INVOICE BREAKDOWN (Consultation, Pharmacy, Labs)       */}
+      {/* SLIDE-OUT PANEL (OFFCANVAS / SHEET) FOR ITEMIZED INVOICE BREAKDOWN        */}
       {/* ========================================================================= */}
-      <Dialog open={!!selectedInvoice && !isPayModalOpen} onOpenChange={(open) => !open && setSelectedInvoice(null)}>
-        <DialogContent className="sm:max-w-2xl">
+      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <SheetContent className="w-full sm:max-w-xl overflow-y-auto bg-white dark:bg-slate-900 p-6 space-y-6">
           {selectedInvoice && (
             <>
-              <DialogHeader>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="h-9 w-9 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center">
-                      <Receipt className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <DialogTitle className="text-lg font-bold">
-                        Invoice Breakdown: {selectedInvoice.invoice_number}
-                      </DialogTitle>
-                      <DialogDescription className="text-xs">
-                        Itemized hospital bill covering physician fees, pharmacy dispensations, and laboratory investigations.
-                      </DialogDescription>
-                    </div>
+              <SheetHeader className="border-b border-slate-100 dark:border-slate-800 pb-4">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1">
+                    <SheetTitle className="text-xl font-black text-slate-900 dark:text-white">
+                      Invoice #{selectedInvoice.invoice_number}
+                    </SheetTitle>
+                    <SheetDescription className="text-xs">
+                      Official patient tax invoice & itemized clinical charges.
+                    </SheetDescription>
                   </div>
-                  <Badge
-                    className={
-                      selectedInvoice.payment_status === "Paid"
-                        ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 text-xs font-bold"
-                        : "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 text-xs font-bold"
-                    }
-                  >
-                    {selectedInvoice.payment_status}
-                  </Badge>
+                  {renderStatusBadge(selectedInvoice.payment_status)}
                 </div>
-              </DialogHeader>
+              </SheetHeader>
 
-              <div className="space-y-4 py-2 text-xs">
-                {/* Meta details banner */}
-                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Patient</span>
-                    <p className="font-bold text-slate-900 dark:text-white text-sm">{selectedInvoice.patient_name}</p>
-                    <p className="text-slate-400">ID: #{selectedInvoice.patient_id}</p>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Attending Doctor</span>
-                    <p className="font-bold text-slate-900 dark:text-white text-sm">{selectedInvoice.doctor_name || "Specialist"}</p>
-                    <p className="text-slate-400">Ref Appt #{selectedInvoice.appointment_id || "Direct"}</p>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Payment Channel</span>
-                    <p className="font-bold text-emerald-600 text-sm">{selectedInvoice.payment_method || "Unsettled"}</p>
-                    <p className="text-slate-400">{selectedInvoice.issued_date || "Today"}</p>
-                  </div>
+              {/* Patient Mini-Profile in Sheet */}
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Patient</span>
+                  <p className="font-bold text-slate-900 dark:text-white text-sm">{selectedInvoice.patient_name}</p>
+                  <p className="text-slate-400 font-mono">ID: #{selectedInvoice.patient_id}</p>
                 </div>
-
-                {/* Itemized Line Items Table */}
-                <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
-                  <Table>
-                    <TableHeader className="bg-slate-50 dark:bg-slate-900/60">
-                      <TableRow>
-                        <TableHead className="text-[11px] font-bold">Item Description</TableHead>
-                        <TableHead className="text-[11px] font-bold text-center">Qty</TableHead>
-                        <TableHead className="text-[11px] font-bold text-right">Unit Rate</TableHead>
-                        <TableHead className="text-[11px] font-bold text-right">Line Total</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {selectedInvoice.items && selectedInvoice.items.length > 0 ? (
-                        selectedInvoice.items.map((item, idx) => (
-                          <TableRow key={idx}>
-                            <TableCell className="font-semibold text-slate-900 dark:text-white">
-                              <span className="flex items-center gap-1.5">
-                                {item.description.toLowerCase().includes("consult") ? (
-                                  <Stethoscope className="h-3.5 w-3.5 text-blue-500 shrink-0" />
-                                ) : item.description.toLowerCase().includes("test") || item.description.toLowerCase().includes("panel") ? (
-                                  <FlaskConical className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-                                ) : (
-                                  <Pill className="h-3.5 w-3.5 text-purple-500 shrink-0" />
-                                )}
-                                {item.description}
-                              </span>
-                            </TableCell>
-                            <TableCell className="text-center font-mono font-semibold">
-                              {item.quantity}
-                            </TableCell>
-                            <TableCell className="text-right font-mono text-slate-500">
-                              ${item.unit_price.toFixed(2)}
-                            </TableCell>
-                            <TableCell className="text-right font-mono font-bold text-slate-900 dark:text-white">
-                              ${item.total.toFixed(2)}
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={4} className="text-center py-4 text-slate-400">
-                            General Physician Consultation & Evaluation (${selectedInvoice.total_amount.toFixed(2)})
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Attending Doctor</span>
+                  <p className="font-bold text-slate-900 dark:text-white text-sm">{selectedInvoice.doctor_name || "Specialist"}</p>
+                  <p className="text-slate-400">Appt #{selectedInvoice.appointment_id || "Direct"}</p>
                 </div>
-
-                {/* Subtotals & Grand Total Box */}
-                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 space-y-1.5">
-                  <div className="flex justify-between text-slate-500">
-                    <span>Itemized Subtotal:</span>
-                    <span className="font-mono font-semibold">${selectedInvoice.total_amount.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-slate-500">
-                    <span>Hospital Concession / Tax (0%):</span>
-                    <span className="font-mono font-semibold">$0.00</span>
-                  </div>
-                  <div className="flex justify-between text-slate-900 dark:text-white font-bold text-sm pt-1 border-t border-slate-200 dark:border-slate-700">
-                    <span>Total Billed Amount:</span>
-                    <span className="font-mono text-base font-black text-emerald-600 dark:text-emerald-400">
-                      ${selectedInvoice.total_amount.toFixed(2)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-slate-600 dark:text-slate-300 text-xs">
-                    <span>Amount Paid:</span>
-                    <span className="font-mono font-bold text-slate-900 dark:text-white">
-                      ${(selectedInvoice.paid_amount || 0).toFixed(2)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-xs font-bold text-red-600">
-                    <span>Balance Due:</span>
-                    <span className="font-mono">
-                      ${Math.max(0, selectedInvoice.total_amount - (selectedInvoice.paid_amount || 0)).toFixed(2)}
-                    </span>
-                  </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Issued Date</span>
+                  <p className="font-bold text-slate-900 dark:text-white">{selectedInvoice.issued_date || "Today"}</p>
                 </div>
-
-                {selectedInvoice.notes && (
-                  <p className="text-[11px] text-slate-500 italic bg-slate-50 dark:bg-slate-900/60 p-2 rounded-lg border border-slate-100 dark:border-slate-800">
-                    Notes: {selectedInvoice.notes}
-                  </p>
-                )}
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Payment Channel</span>
+                  <p className="font-bold text-emerald-600">{selectedInvoice.payment_method || "Unsettled"}</p>
+                </div>
               </div>
 
-              <DialogFooter className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+              {/* Itemized Table Breakdown */}
+              <div className="space-y-2 text-xs">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Itemized Charges Breakdown
+                </span>
+
+                <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+                  <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {selectedInvoice.items && selectedInvoice.items.length > 0 ? (
+                      selectedInvoice.items.map((item, idx) => (
+                        <div key={idx} className="p-3 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            {item.description.toLowerCase().includes("consult") ? (
+                              <Stethoscope className="h-4 w-4 text-blue-500 shrink-0" />
+                            ) : item.description.toLowerCase().includes("test") || item.description.toLowerCase().includes("panel") ? (
+                              <FlaskConical className="h-4 w-4 text-amber-500 shrink-0" />
+                            ) : (
+                              <Pill className="h-4 w-4 text-purple-500 shrink-0" />
+                            )}
+                            <div>
+                              <p className="font-semibold text-slate-900 dark:text-white text-xs">{item.description}</p>
+                              <p className="text-[11px] text-slate-400">
+                                Qty: {item.quantity} × ${item.unit_price.toFixed(2)}
+                              </p>
+                            </div>
+                          </div>
+                          <span className="font-mono font-bold text-xs text-slate-900 dark:text-white">
+                            ${item.total.toFixed(2)}
+                          </span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-4 text-center text-slate-400">
+                        Physician Consultation & Clinical Services (${selectedInvoice.total_amount.toFixed(2)})
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Total & Balances Box */}
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 space-y-1.5 text-xs">
+                <div className="flex justify-between text-slate-500">
+                  <span>Subtotal Charges:</span>
+                  <span className="font-mono font-semibold">${selectedInvoice.total_amount.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-slate-500">
+                  <span>Tax & Concessions:</span>
+                  <span className="font-mono font-semibold">$0.00</span>
+                </div>
+                <div className="flex justify-between text-slate-900 dark:text-white font-bold text-sm pt-2 border-t border-slate-200 dark:border-slate-700">
+                  <span>Total Amount Billed:</span>
+                  <span className="font-mono text-base font-black text-emerald-600 dark:text-emerald-400">
+                    ${selectedInvoice.total_amount.toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-xs font-semibold text-slate-600 dark:text-slate-300">
+                  <span>Amount Settled / Paid:</span>
+                  <span className="font-mono text-slate-900 dark:text-white">
+                    ${(selectedInvoice.paid_amount || 0).toFixed(2)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-xs font-bold text-red-600">
+                  <span>Outstanding Balance:</span>
+                  <span className="font-mono">
+                    ${Math.max(0, selectedInvoice.total_amount - (selectedInvoice.paid_amount || 0)).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Actions Footer */}
+              <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
                 <Button
-                  variant="outline"
                   size="sm"
-                  onClick={() => setSelectedInvoice(null)}
-                  className="text-xs"
+                  variant="outline"
+                  disabled={isDownloadingPdf}
+                  onClick={() => handleDownloadPdf(selectedInvoice.id, selectedInvoice.invoice_number)}
+                  className="text-xs font-bold gap-1.5 border-blue-200 text-blue-700 dark:text-blue-300 hover:bg-blue-50"
                 >
-                  Close
+                  <Download className="h-3.5 w-3.5" />
+                  PDF Receipt
                 </Button>
 
-                <div className="flex items-center gap-2">
+                {selectedInvoice.payment_status !== "Paid" && (
                   <Button
                     size="sm"
-                    variant="outline"
-                    disabled={isDownloadingPdf}
-                    onClick={() => handleDownloadPdf(selectedInvoice.id, selectedInvoice.invoice_number)}
-                    className="text-xs font-bold gap-1.5 border-blue-200 text-blue-700 dark:text-blue-300 hover:bg-blue-50"
+                    onClick={() => openPaymentModal(selectedInvoice)}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-1.5 shadow-xs"
                   >
-                    <Download className="h-3.5 w-3.5" />
-                    Download PDF Receipt
+                    <CreditCard className="h-3.5 w-3.5" />
+                    Record Payment
                   </Button>
-
-                  {selectedInvoice.payment_status !== "Paid" && (
-                    <Button
-                      size="sm"
-                      onClick={() => openPaymentModal(selectedInvoice)}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-1.5 shadow-xs"
-                    >
-                      <CreditCard className="h-3.5 w-3.5" />
-                      Record Payment
-                    </Button>
-                  )}
-                </div>
-              </DialogFooter>
+                )}
+              </div>
             </>
           )}
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
 
       {/* ========================================================================= */}
-      {/* DIALOG 2: RECORD PAYMENT MODAL (SETTLES INVOICE TO PAID)                  */}
+      {/* DIALOG: RECORD PAYMENT MODAL (SETTLES INVOICE TO PAID)                    */}
       {/* ========================================================================= */}
       <Dialog open={isPayModalOpen} onOpenChange={setIsPayModalOpen}>
         <DialogContent className="sm:max-w-md">
@@ -850,7 +801,6 @@ export default function BillingInvoicingPage() {
               </DialogHeader>
 
               <div className="space-y-4 py-2 text-xs">
-                {/* Outstanding balance prompt */}
                 <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 flex justify-between items-center">
                   <div>
                     <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
@@ -865,7 +815,6 @@ export default function BillingInvoicingPage() {
                   </Badge>
                 </div>
 
-                {/* Payment Method Selector */}
                 <div className="space-y-1.5">
                   <Label htmlFor="payMethod" className="text-xs font-bold uppercase tracking-wider text-slate-500">
                     Payment Channel
@@ -885,7 +834,6 @@ export default function BillingInvoicingPage() {
                   </select>
                 </div>
 
-                {/* Amount to Collect Input */}
                 <div className="space-y-1.5">
                   <Label htmlFor="payAmount" className="text-xs font-bold uppercase tracking-wider text-slate-500">
                     Amount Received ($)
@@ -901,7 +849,6 @@ export default function BillingInvoicingPage() {
                   />
                 </div>
 
-                {/* Cashier Notes */}
                 <div className="space-y-1.5">
                   <Label htmlFor="notesInput" className="text-xs font-bold uppercase tracking-wider text-slate-500">
                     Cashier / Transaction Reference Notes

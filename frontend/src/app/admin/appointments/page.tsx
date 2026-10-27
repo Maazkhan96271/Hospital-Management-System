@@ -5,31 +5,35 @@ import useSWR from "swr";
 import { apiFetch } from "@/lib/api";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DataTable, Column } from "@/components/ui/data-table";
 import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableHead,
-  TableRow,
-  TableCell,
-} from "@/components/ui/table";
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 import {
   CalendarCheck,
   Search,
   Clock,
   User,
   Stethoscope,
-  Filter,
   CheckCircle2,
   AlertTriangle,
   XCircle,
   Calendar,
   Layers,
-  ArrowRight,
+  FileText,
+  Pill,
   RefreshCw,
+  Phone,
+  Mail,
+  Receipt,
+  Eye,
+  Check,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -39,7 +43,8 @@ interface Appointment {
   doctor_id: number;
   appointment_datetime: string;
   duration_minutes: number;
-  status: "Booked" | "Completed" | "Cancelled";
+  status: "Booked" | "Waiting" | "In-Progress" | "Completed" | "Cancelled";
+  notes?: string;
   created_at: string;
   patient?: {
     id: number;
@@ -59,54 +64,37 @@ interface Appointment {
 
 export default function AdminAppointmentsPage() {
   const [activeTab, setActiveTab] = useState<"ALL" | "UPCOMING" | "COMPLETED" | "CANCELLED">("ALL");
-  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isUpdating, setIsUpdating] = useState<number | null>(null);
 
   // SWR: fetch all appointments (FastAPI backend /api/appointments/)
   const {
     data: appointments,
     isLoading,
-    error,
     mutate,
   } = useSWR<Appointment[]>("/api/appointments/", () =>
     apiFetch<Appointment[]>("/api/appointments/")
   );
 
-  // Filter appointments by tab and search
-  const filteredAppointments = useMemo(() => {
+  // Filter appointments by active status tab
+  const tabFilteredAppointments = useMemo(() => {
     if (!appointments) return [];
 
     return appointments.filter((appt) => {
-      // Status filter
-      if (activeTab === "UPCOMING" && appt.status !== "Booked") return false;
+      if (activeTab === "UPCOMING" && appt.status !== "Booked" && appt.status !== "Waiting") return false;
       if (activeTab === "COMPLETED" && appt.status !== "Completed") return false;
       if (activeTab === "CANCELLED" && appt.status !== "Cancelled") return false;
-
-      // Text search
-      if (!searchTerm) return true;
-      const term = searchTerm.toLowerCase();
-      const patientName = `${appt.patient?.first_name || ""} ${appt.patient?.last_name || ""}`.toLowerCase();
-      const patientEmail = (appt.patient?.email || "").toLowerCase();
-      const idMatch = String(appt.id).includes(term);
-      const doctorIdMatch = String(appt.doctor_id).includes(term);
-      const diagnosisMatch = (appt.treatment_record?.diagnosis || "").toLowerCase().includes(term);
-
-      return (
-        patientName.includes(term) ||
-        patientEmail.includes(term) ||
-        idMatch ||
-        doctorIdMatch ||
-        diagnosisMatch
-      );
+      return true;
     });
-  }, [appointments, activeTab, searchTerm]);
+  }, [appointments, activeTab]);
 
   // Status Counts
   const counts = useMemo(() => {
     const list = appointments || [];
     return {
       all: list.length,
-      upcoming: list.filter((a) => a.status === "Booked").length,
+      upcoming: list.filter((a) => a.status === "Booked" || a.status === "Waiting").length,
       completed: list.filter((a) => a.status === "Completed").length,
       cancelled: list.filter((a) => a.status === "Cancelled").length,
     };
@@ -118,40 +106,63 @@ export default function AdminAppointmentsPage() {
 
     try {
       setIsUpdating(apptId);
-      await apiFetch<Appointment>(`/api/appointments/${apptId}/status`, {
+      await apiFetch(`/api/appointments/${apptId}/status`, {
         method: "PATCH",
         body: JSON.stringify({ status: "Cancelled" }),
       });
-      toast.success(`Appointment #${apptId} has been cancelled.`);
+
+      toast.success("Appointment Cancelled", {
+        description: `Appointment #${apptId} has been successfully cancelled.`,
+      });
+
       mutate();
+      if (selectedAppointment?.id === apptId) {
+        setSelectedAppointment((prev) => (prev ? { ...prev, status: "Cancelled" } : null));
+      }
     } catch (err: any) {
-      toast.error(err.message || "Failed to cancel appointment.");
+      toast.error("Cancellation Failed", {
+        description: err.message || "Failed to cancel appointment.",
+      });
     } finally {
       setIsUpdating(null);
     }
   };
 
-  // Status Badge Component
-  const renderStatusBadge = (status: Appointment["status"]) => {
+  // Status Badge Renderer with consistent enterprise color-coding
+  const renderStatusBadge = (status: string) => {
     switch (status) {
       case "Completed":
         return (
-          <Badge className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800 font-semibold gap-1">
-            <CheckCircle2 className="h-3 w-3" />
+          <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-0 font-bold text-[10px] gap-1">
+            <CheckCircle2 className="h-3 w-3 text-emerald-600" />
             Completed
+          </Badge>
+        );
+      case "Waiting":
+        return (
+          <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border-0 font-bold text-[10px] gap-1">
+            <Clock className="h-3 w-3 text-blue-600 animate-pulse" />
+            Waiting in Lobby
+          </Badge>
+        );
+      case "In-Progress":
+        return (
+          <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 border-0 font-bold text-[10px] gap-1">
+            <Clock className="h-3 w-3 text-purple-600" />
+            In-Progress
           </Badge>
         );
       case "Booked":
         return (
-          <Badge className="bg-amber-50 text-amber-700 dark:bg-amber-950/70 dark:text-amber-300 border-amber-300 dark:border-amber-800 font-semibold gap-1">
-            <AlertTriangle className="h-3 w-3" />
-            Upcoming
+          <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-0 font-bold text-[10px] gap-1">
+            <AlertTriangle className="h-3 w-3 text-amber-600" />
+            Booked
           </Badge>
         );
       case "Cancelled":
         return (
-          <Badge className="bg-red-50 text-red-700 dark:bg-red-950/70 dark:text-red-300 border-red-300 dark:border-red-800 font-semibold gap-1">
-            <XCircle className="h-3 w-3" />
+          <Badge className="bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 border-0 font-bold text-[10px] gap-1">
+            <XCircle className="h-3 w-3 text-red-600" />
             Cancelled
           </Badge>
         );
@@ -160,21 +171,125 @@ export default function AdminAppointmentsPage() {
     }
   };
 
+  // Open Slide-out Sheet for appointment
+  const handleOpenSheet = (appt: Appointment) => {
+    setSelectedAppointment(appt);
+    setIsSheetOpen(true);
+  };
+
+  // DataTable column definitions
+  const columns: Column<Appointment>[] = [
+    {
+      header: "Appt #",
+      accessorKey: "id",
+      sortable: true,
+      className: "font-mono font-bold text-slate-500 w-24",
+      cell: (row) => `#${row.id}`,
+    },
+    {
+      header: "Patient Name",
+      accessorFn: (row) =>
+        row.patient ? `${row.patient.first_name} ${row.patient.last_name}` : `Patient #${row.patient_id}`,
+      sortable: true,
+      cell: (row) => {
+        const name = row.patient
+          ? `${row.patient.first_name} ${row.patient.last_name}`
+          : `Patient #${row.patient_id}`;
+        return (
+          <div>
+            <span className="font-bold text-xs text-blue-600 dark:text-blue-400 hover:underline cursor-pointer">
+              {name}
+            </span>
+            <span className="block text-[11px] text-slate-400">ID: #{row.patient_id}</span>
+          </div>
+        );
+      },
+    },
+    {
+      header: "Attending Doctor",
+      accessorKey: "doctor_id",
+      sortable: true,
+      cell: (row) => (
+        <span className="flex items-center gap-1.5 font-medium text-slate-700 dark:text-slate-300">
+          <Stethoscope className="h-3.5 w-3.5 text-blue-500" />
+          Dr. #{row.doctor_id}
+        </span>
+      ),
+    },
+    {
+      header: "Date & Time",
+      accessorKey: "appointment_datetime",
+      sortable: true,
+      cell: (row) => {
+        const d = new Date(row.appointment_datetime);
+        return (
+          <div className="space-y-0.5">
+            <span className="font-medium text-slate-900 dark:text-white flex items-center gap-1">
+              <Calendar className="h-3 w-3 text-slate-400" />
+              {d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+            </span>
+            <span className="text-slate-500 flex items-center gap-1 text-[11px]">
+              <Clock className="h-3 w-3 text-slate-400" />
+              {d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
+            </span>
+          </div>
+        );
+      },
+    },
+    {
+      header: "Status",
+      accessorKey: "status",
+      sortable: true,
+      cell: (row) => renderStatusBadge(row.status),
+    },
+    {
+      header: "Diagnosis / Notes",
+      accessorKey: "treatment_record.diagnosis",
+      sortable: false,
+      className: "max-w-xs",
+      cell: (row) => (
+        <span className="text-slate-600 dark:text-slate-300 line-clamp-1">
+          {row.treatment_record?.diagnosis || row.notes || "Standard clinical consultation"}
+        </span>
+      ),
+    },
+    {
+      header: "Action",
+      sortable: false,
+      headerClassName: "text-right",
+      className: "text-right",
+      cell: (row) => (
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleOpenSheet(row);
+          }}
+          className="text-xs font-semibold text-blue-600 hover:text-blue-700 h-8 gap-1"
+        >
+          <Eye className="h-3.5 w-3.5" />
+          Details
+        </Button>
+      ),
+    },
+  ];
+
   return (
-    <div className="space-y-8 p-6 md:p-8 max-w-7xl mx-auto">
+    <div className="space-y-8">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/80 dark:border-slate-800 pb-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/80 dark:border-slate-800 pb-5">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="p-1.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
+            <span className="p-2 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
               <CalendarCheck className="h-5 w-5" />
             </span>
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+            <h1 className="text-2xl md:text-3xl font-black tracking-tight text-slate-900 dark:text-white">
               Hospital Appointments
             </h1>
           </div>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Unified view of all patient bookings, upcoming consultations, and completed medical treatment records.
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+            Enterprise appointments directory with instant search, sorting, and offcanvas clinical sheets.
           </p>
         </div>
 
@@ -182,7 +297,7 @@ export default function AdminAppointmentsPage() {
           variant="outline"
           size="sm"
           onClick={() => mutate()}
-          className="self-start md:self-auto gap-1.5 text-xs"
+          className="self-start md:self-auto gap-1.5 text-xs font-semibold h-9"
         >
           <RefreshCw className="h-3.5 w-3.5" />
           Refresh Agenda
@@ -193,200 +308,229 @@ export default function AdminAppointmentsPage() {
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-4">
         <button
           onClick={() => setActiveTab("ALL")}
-          className={`px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+          className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
             activeTab === "ALL"
               ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 shadow-sm"
-              : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800"
+              : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 border border-slate-200 dark:border-slate-800"
           }`}
         >
           <Layers className="h-3.5 w-3.5" />
           All Consultations
-          <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200/50 dark:bg-slate-800">
+          <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200/60 dark:bg-slate-800 font-mono">
             {counts.all}
           </span>
         </button>
 
         <button
           onClick={() => setActiveTab("UPCOMING")}
-          className={`px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+          className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
             activeTab === "UPCOMING"
               ? "bg-amber-600 text-white shadow-sm"
-              : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-amber-50 dark:hover:bg-amber-950/40 border border-slate-200 dark:border-slate-800"
+              : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-amber-50 border border-slate-200 dark:border-slate-800"
           }`}
         >
           <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
           Upcoming (Booked)
-          <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-200">
+          <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-200 font-mono">
             {counts.upcoming}
           </span>
         </button>
 
         <button
           onClick={() => setActiveTab("COMPLETED")}
-          className={`px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+          className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
             activeTab === "COMPLETED"
               ? "bg-emerald-600 text-white shadow-sm"
-              : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 border border-slate-200 dark:border-slate-800"
+              : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-emerald-50 border border-slate-200 dark:border-slate-800"
           }`}
         >
           <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
           Completed Treatments
-          <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-200">
+          <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-200 font-mono">
             {counts.completed}
           </span>
         </button>
 
         <button
           onClick={() => setActiveTab("CANCELLED")}
-          className={`px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer ${
+          className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all cursor-pointer ${
             activeTab === "CANCELLED"
               ? "bg-red-600 text-white shadow-sm"
-              : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-red-50 dark:hover:bg-red-950/40 border border-slate-200 dark:border-slate-800"
+              : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-red-50 border border-slate-200 dark:border-slate-800"
           }`}
         >
           <XCircle className="h-3.5 w-3.5 text-red-500" />
           Cancelled
-          <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-red-100 dark:bg-red-950 text-red-800 dark:text-red-200">
+          <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-red-100 dark:bg-red-950 text-red-800 dark:text-red-200 font-mono">
             {counts.cancelled}
           </span>
         </button>
       </div>
 
-      {/* Search Input */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-        <Input
-          placeholder="Search by patient, doctor ID, appointment #ID..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-9 bg-white dark:bg-slate-900"
-        />
-      </div>
+      {/* Advanced Data Table with Sorting, Search, and Pagination */}
+      <DataTable
+        columns={columns}
+        data={tabFilteredAppointments}
+        searchPlaceholder="Instant search patient, doctor, diagnosis..."
+        searchableKeys={["id", "doctor_id", "status", "notes"]}
+        defaultPageSize={10}
+        isLoading={isLoading}
+        onRowClick={(row) => handleOpenSheet(row)}
+      />
 
-      {/* Appointments Unified Data Table */}
-      <Card className="border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden bg-white dark:bg-slate-900">
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader className="bg-slate-50/80 dark:bg-slate-950/40 border-b border-slate-200 dark:border-slate-800">
-              <TableRow>
-                <TableHead className="w-20 text-xs font-semibold">Appt ID</TableHead>
-                <TableHead className="text-xs font-semibold">Patient</TableHead>
-                <TableHead className="text-xs font-semibold">Attending Doctor</TableHead>
-                <TableHead className="text-xs font-semibold">Date & Time</TableHead>
-                <TableHead className="text-xs font-semibold">Duration</TableHead>
-                <TableHead className="text-xs font-semibold">Status</TableHead>
-                <TableHead className="text-xs font-semibold">Diagnosis / Notes</TableHead>
-                <TableHead className="text-right text-xs font-semibold">Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                Array.from({ length: 6 }).map((_, idx) => (
-                  <TableRow key={idx}>
-                    <TableCell><Skeleton className="h-4 w-12" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-20 rounded-full" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-36" /></TableCell>
-                    <TableCell className="text-right"><Skeleton className="h-8 w-16 ml-auto" /></TableCell>
-                  </TableRow>
-                ))
-              ) : filteredAppointments.length > 0 ? (
-                filteredAppointments.map((appt) => {
-                  const dateObj = new Date(appt.appointment_datetime);
-                  const formattedDate = dateObj.toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  });
-                  const formattedTime = dateObj.toLocaleTimeString("en-US", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  });
+      {/* ========================================================================= */}
+      {/* SLIDE-OUT PANEL (OFFCANVAS / SHEET) FOR CLINICAL & PATIENT ENCOUNTER      */}
+      {/* ========================================================================= */}
+      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <SheetContent className="w-full sm:max-w-xl overflow-y-auto bg-white dark:bg-slate-900 p-6 space-y-6">
+          {selectedAppointment && (
+            <>
+              <SheetHeader className="border-b border-slate-100 dark:border-slate-800 pb-4">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1">
+                    <SheetTitle className="text-xl font-black text-slate-900 dark:text-white">
+                      Encounter #{selectedAppointment.id}
+                    </SheetTitle>
+                    <SheetDescription className="text-xs">
+                      Consultation details and patient clinical record.
+                    </SheetDescription>
+                  </div>
+                  {renderStatusBadge(selectedAppointment.status)}
+                </div>
+              </SheetHeader>
 
-                  return (
-                    <TableRow key={appt.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50">
-                      <TableCell className="font-mono text-xs font-bold text-slate-500">
-                        #{appt.id}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <User className="h-3.5 w-3.5 text-slate-400" />
-                          <span className="font-semibold text-xs text-slate-900 dark:text-slate-100">
-                            {appt.patient
-                              ? `${appt.patient.first_name} ${appt.patient.last_name}`
-                              : `Patient #${appt.patient_id}`}
-                          </span>
+              {/* Patient Profile Card */}
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 space-y-2 text-xs">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Patient Mini-Profile
+                </span>
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 font-black text-sm flex items-center justify-center">
+                    {(selectedAppointment.patient?.first_name?.[0] || "P").toUpperCase()}
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm text-slate-900 dark:text-white">
+                      {selectedAppointment.patient
+                        ? `${selectedAppointment.patient.first_name} ${selectedAppointment.patient.last_name}`
+                        : `Patient #${selectedAppointment.patient_id}`}
+                    </h3>
+                    <p className="text-slate-500 font-mono text-[11px]">
+                      Patient ID: #{selectedAppointment.patient_id}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
+                  <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                    <Mail className="h-3 w-3 text-slate-400" />
+                    <span className="truncate">{selectedAppointment.patient?.email || "No email"}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                    <Phone className="h-3 w-3 text-slate-400" />
+                    <span>{selectedAppointment.patient?.phone || "+1 (555) 000-0000"}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Appointment Schedule Info */}
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 space-y-2 text-xs">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Schedule Details
+                </span>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-slate-400 text-[11px]">Attending Physician</p>
+                    <p className="font-bold text-slate-900 dark:text-white flex items-center gap-1 mt-0.5">
+                      <Stethoscope className="h-3.5 w-3.5 text-blue-500" />
+                      Doctor #{selectedAppointment.doctor_id}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-slate-400 text-[11px]">Duration</p>
+                    <p className="font-bold text-slate-900 dark:text-white mt-0.5">
+                      {selectedAppointment.duration_minutes || 30} Minutes
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-slate-400 text-[11px]">Consultation Date</p>
+                    <p className="font-bold text-slate-900 dark:text-white mt-0.5">
+                      {new Date(selectedAppointment.appointment_datetime).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-slate-400 text-[11px]">Scheduled Time</p>
+                    <p className="font-bold text-slate-900 dark:text-white mt-0.5">
+                      {new Date(selectedAppointment.appointment_datetime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Treatment & Clinical Record */}
+              <div className="space-y-3 text-xs">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Clinical Examination & Findings
+                </span>
+                {selectedAppointment.treatment_record ? (
+                  <div className="p-4 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 space-y-3">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase text-emerald-800 dark:text-emerald-300">Diagnosis</p>
+                      <p className="font-bold text-sm text-emerald-950 dark:text-emerald-100 mt-0.5">
+                        {selectedAppointment.treatment_record.diagnosis}
+                      </p>
+                    </div>
+
+                    {selectedAppointment.treatment_record.prescription && selectedAppointment.treatment_record.prescription.length > 0 && (
+                      <div>
+                        <p className="text-[10px] font-bold uppercase text-emerald-800 dark:text-emerald-300 mb-1">
+                          Prescription Formulations
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {selectedAppointment.treatment_record.prescription.map((rx, rIdx) => (
+                            <Badge key={rIdx} variant="secondary" className="text-[10px] bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200">
+                              <Pill className="h-3 w-3 mr-1 text-purple-500" />
+                              {rx}
+                            </Badge>
+                          ))}
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300">
-                          <Stethoscope className="h-3.5 w-3.5 text-blue-500" />
-                          <span>Physician #{appt.doctor_id}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-0.5 text-xs">
-                          <div className="font-medium text-slate-800 dark:text-slate-200 flex items-center gap-1">
-                            <Calendar className="h-3 w-3 text-slate-400" />
-                            {formattedDate}
-                          </div>
-                          <div className="text-slate-500 flex items-center gap-1">
-                            <Clock className="h-3 w-3 text-slate-400" />
-                            {formattedTime}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-xs text-slate-500">
-                        {appt.duration_minutes || 30} mins
-                      </TableCell>
-                      <TableCell>{renderStatusBadge(appt.status)}</TableCell>
-                      <TableCell className="max-w-xs">
-                        {appt.treatment_record ? (
-                          <div className="text-xs">
-                            <span className="font-semibold text-slate-800 dark:text-slate-200">
-                              {appt.treatment_record.diagnosis}
-                            </span>
-                            {appt.treatment_record.prescription?.length > 0 && (
-                              <span className="text-[11px] text-slate-500 block truncate">
-                                Rx: {appt.treatment_record.prescription.join(", ")}
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-xs text-slate-400 italic">None recorded</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {appt.status === "Booked" && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={isUpdating === appt.id}
-                            onClick={() => handleCancel(appt.id)}
-                            className="h-7 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/50 border-red-200 dark:border-red-900/60"
-                          >
-                            Cancel
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={8} className="h-36 text-center text-slate-500">
-                    <CalendarCheck className="mx-auto h-8 w-8 text-slate-300 mb-2" />
-                    No appointments match the selected filter.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </Card>
+                      </div>
+                    )}
+
+                    {selectedAppointment.treatment_record.detailed_notes && (
+                      <p className="text-[11px] text-slate-600 dark:text-slate-400 italic">
+                        Notes: {selectedAppointment.treatment_record.detailed_notes}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-xl border border-dashed text-slate-400 text-center">
+                    No clinical treatment record submitted yet.
+                  </div>
+                )}
+              </div>
+
+              {/* Actions Footer */}
+              <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <Button variant="ghost" size="sm" onClick={() => setIsSheetOpen(false)}>
+                  Close Panel
+                </Button>
+
+                {selectedAppointment.status === "Booked" && (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    disabled={isUpdating === selectedAppointment.id}
+                    onClick={() => handleCancel(selectedAppointment.id)}
+                    className="text-xs font-bold"
+                  >
+                    Cancel Appointment
+                  </Button>
+                )}
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
