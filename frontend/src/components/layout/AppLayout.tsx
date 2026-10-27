@@ -5,9 +5,19 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { useAuth } from "@/context/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { GlobalPatientSearch } from "@/components/search/GlobalPatientSearch";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import Link from "next/link";
+import { useRouter, usePathname } from "next/navigation";
 import {
   HeartPulse,
   Bell,
@@ -15,17 +25,55 @@ import {
   LogIn,
   Search,
   Command,
+  User,
+  LogOut,
+  CalendarCheck,
+  LayoutDashboard,
+  Receipt,
+  UserCheck,
+  ShieldCheck,
+  ChevronDown,
+  FileText,
+  Sparkles,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+const SIDEBAR_COLLAPSED_KEY = "hms_sidebar_collapsed";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
-  const { user, isAuthenticated, role } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
+  const { user, isAuthenticated, role, logout } = useAuth();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  // Restore sidebar collapsed preference from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+      if (saved !== null) {
+        setIsCollapsed(saved === "true");
+      }
+    } catch {
+      // Ignore storage errors
+    }
+  }, []);
+
+  const toggleCollapse = () => {
+    setIsCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(next));
+      } catch {}
+      return next;
+    });
+  };
 
   // Global Cmd+K / Ctrl+K keyboard shortcut listener for Admins & Doctors
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        if (role === "Admin" || role === "Doctor") {
+        if (role === "Admin" || role === "Doctor" || role === "Pharmacist" || role === "LabTechnician") {
           e.preventDefault();
           setIsSearchOpen((prev) => !prev);
         }
@@ -36,76 +84,215 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [role]);
 
-  const canUsePatientSearch = role === "Admin" || role === "Doctor";
+  const canUsePatientSearch = role === "Admin" || role === "Doctor" || role === "Pharmacist" || role === "LabTechnician";
+
+  const handleLogout = () => {
+    logout();
+    router.push("/login");
+  };
+
+  const initials = user
+    ? `${user.first_name?.[0] || ""}${user.last_name?.[0] || ""}`.toUpperCase() ||
+      user.username?.[0]?.toUpperCase() ||
+      "U"
+    : "G";
 
   return (
-    <div className="min-h-screen bg-slate-50/60 dark:bg-slate-950 flex">
-      {/* Persistent / Responsive Sidebar */}
-      <Sidebar onOpenSearch={() => setIsSearchOpen(true)} canSearch={canUsePatientSearch} />
+    <div className="min-h-screen bg-slate-50/70 dark:bg-slate-950 flex">
+      {/* Persistent Enterprise Collapsible Sidebar */}
+      <Sidebar
+        onOpenSearch={() => setIsSearchOpen(true)}
+        canSearch={canUsePatientSearch}
+        isCollapsed={isCollapsed}
+        onToggleCollapse={toggleCollapse}
+      />
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 lg:pl-72 pt-16 lg:pt-0">
+      {/* Main Content Area dynamically padded for sidebar collapse */}
+      <div
+        className={cn(
+          "flex-1 flex flex-col min-w-0 transition-all duration-300 ease-in-out pt-16 lg:pt-0",
+          isCollapsed ? "lg:pl-20" : "lg:pl-68"
+        )}
+      >
         {/* Top Header Bar for Desktop */}
-        <header className="hidden lg:flex h-18 px-8 items-center justify-between border-b border-slate-200/80 dark:border-slate-800 bg-white/70 dark:bg-slate-900/70 backdrop-blur-md sticky top-0 z-30">
-          <div className="flex items-center gap-3">
-            <h1 className="text-sm font-medium text-slate-500 dark:text-slate-400">
-              Hospital Management System
-            </h1>
-            <span className="text-slate-300 dark:text-slate-700">•</span>
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-                FastAPI Engine Online
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {/* Cmd+K Global Search Trigger for Admins & Doctors */}
-            {canUsePatientSearch && (
+        <header className="hidden lg:flex h-16 px-6 items-center justify-between border-b border-slate-200/80 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md sticky top-0 z-30 shadow-xs">
+          {/* Left: Global Search Input Front-and-Center */}
+          <div className="flex items-center gap-4 flex-1 max-w-xl">
+            {canUsePatientSearch ? (
               <button
                 type="button"
                 onClick={() => setIsSearchOpen(true)}
-                className="flex items-center gap-2 px-3 py-1.5 text-xs text-slate-500 dark:text-slate-400 bg-slate-100/80 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg border border-slate-200/70 dark:border-slate-700/60 transition-colors shadow-xs"
-                title="Quick patient lookup (⌘K)"
+                className="w-full max-w-md flex items-center justify-between px-3.5 py-2 text-xs font-medium rounded-xl text-slate-500 dark:text-slate-400 bg-slate-100/90 dark:bg-slate-800/90 hover:bg-slate-200/80 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700/70 transition-all shadow-xs cursor-pointer group"
+                title="Search patient database, appointments, and diagnostic records (⌘K)"
               >
-                <Search className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
-                <span className="font-medium text-slate-600 dark:text-slate-300">
-                  Search patients...
+                <span className="flex items-center gap-2">
+                  <Search className="h-3.5 w-3.5 text-slate-400 group-hover:text-blue-600 transition-colors" />
+                  <span className="text-slate-600 dark:text-slate-300 font-semibold">
+                    Global Patient & Record Search...
+                  </span>
                 </span>
-                <kbd className="ml-1.5 font-mono text-[10px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-0.5 text-slate-400 shadow-xs">
+                <kbd className="font-mono text-[10px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md px-1.5 py-0.5 text-slate-500 shadow-xs">
                   ⌘K
                 </kbd>
               </button>
-            )}
-
-            {/* Dark Mode Toggle */}
-            <ThemeToggle />
-
-            {isAuthenticated ? (
-              <>
-                {role === "Patient" && (
-                  <Button asChild size="sm" className="gap-2 text-xs font-semibold">
-                    <Link href="/patient/book">
-                      <CalendarPlus className="h-3.5 w-3.5" />
-                      Book Appointment
-                    </Link>
-                  </Button>
-                )}
-                <div className="text-right">
-                  <p className="text-xs font-semibold text-slate-800 dark:text-slate-100">
-                    {user?.first_name ? `${user.first_name} ${user.last_name}` : user?.username}
-                  </p>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">{user?.role}</p>
-                </div>
-              </>
             ) : (
               <div className="flex items-center gap-2">
-                <Button asChild variant="outline" size="sm" className="text-xs">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                  MediCare Hospital Network • Online
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Right: Hospital Health Status, Notifications, Theme, & User Profile Dropdown */}
+          <div className="flex items-center gap-3">
+            {/* Live Status indicator */}
+            <div className="hidden xl:flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 text-emerald-800 dark:text-emerald-300 text-[11px] font-semibold">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping" />
+              <span>FastAPI HIS Online</span>
+            </div>
+
+            {/* Quick Action for Patient */}
+            {role === "Patient" && (
+              <Button asChild size="sm" className="h-8 gap-1.5 text-xs font-bold bg-blue-600 hover:bg-blue-700">
+                <Link href="/patient/book">
+                  <CalendarPlus className="h-3.5 w-3.5" />
+                  Book Slot
+                </Link>
+              </Button>
+            )}
+
+            {/* Notifications Icon */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 text-slate-500 hover:text-slate-900 dark:hover:text-white"
+              aria-label="Notifications"
+            >
+              <Bell className="h-4 w-4" />
+            </Button>
+
+            {/* Dark / Light Mode Toggle */}
+            <ThemeToggle />
+
+            {/* User Profile Dropdown Menu */}
+            {isAuthenticated && user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex items-center gap-2.5 pl-2 pr-1.5 py-1 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer border border-transparent hover:border-slate-200 dark:hover:border-slate-700"
+                  >
+                    <Avatar className="h-8 w-8 border border-slate-200 dark:border-slate-700 shadow-xs">
+                      <AvatarFallback className="bg-gradient-to-br from-blue-600 to-indigo-600 text-white font-bold text-xs">
+                        {initials}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="text-left hidden sm:block">
+                      <p className="text-xs font-bold text-slate-900 dark:text-white leading-tight">
+                        {user.first_name ? `${user.first_name} ${user.last_name}` : user.username}
+                      </p>
+                      <span className="text-[10px] text-blue-600 dark:text-blue-400 font-mono font-semibold">
+                        {role || "Staff"}
+                      </span>
+                    </div>
+                    <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+                  </button>
+                </DropdownMenuTrigger>
+
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>
+                    <div className="space-y-0.5">
+                      <p className="text-xs font-bold text-slate-900 dark:text-white">
+                        {user.first_name ? `${user.first_name} ${user.last_name}` : user.username}
+                      </p>
+                      <p className="text-[11px] text-slate-500 truncate">{user.email}</p>
+                      <div className="pt-1">
+                        <Badge variant="outline" className="text-[10px] font-mono uppercase">
+                          Role: {role}
+                        </Badge>
+                      </div>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+
+                  {/* Navigation Shortcuts based on role */}
+                  {role === "Admin" && (
+                    <>
+                      <DropdownMenuItem asChild>
+                        <Link href="/admin/dashboard" className="flex items-center gap-2">
+                          <LayoutDashboard className="h-3.5 w-3.5 text-blue-500" />
+                          <span>Admin Dashboard</span>
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/admin/reception" className="flex items-center gap-2">
+                          <UserCheck className="h-3.5 w-3.5 text-emerald-500" />
+                          <span>Live Reception Queue</span>
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/admin/billing" className="flex items-center gap-2">
+                          <Receipt className="h-3.5 w-3.5 text-purple-500" />
+                          <span>Billing & Accounts</span>
+                        </Link>
+                      </DropdownMenuItem>
+                    </>
+                  )}
+
+                  {role === "Doctor" && (
+                    <>
+                      <DropdownMenuItem asChild>
+                        <Link href="/doctor/agenda" className="flex items-center gap-2">
+                          <LayoutDashboard className="h-3.5 w-3.5 text-blue-500" />
+                          <span>Today&apos;s Agenda</span>
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/doctor/availability" className="flex items-center gap-2">
+                          <CalendarCheck className="h-3.5 w-3.5 text-emerald-500" />
+                          <span>7-Day Schedule</span>
+                        </Link>
+                      </DropdownMenuItem>
+                    </>
+                  )}
+
+                  {role === "Patient" && (
+                    <>
+                      <DropdownMenuItem asChild>
+                        <Link href="/patient/dashboard" className="flex items-center gap-2">
+                          <LayoutDashboard className="h-3.5 w-3.5 text-blue-500" />
+                          <span>Patient Dashboard</span>
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/patient/records" className="flex items-center gap-2">
+                          <FileText className="h-3.5 w-3.5 text-emerald-500" />
+                          <span>Clinical Records</span>
+                        </Link>
+                      </DropdownMenuItem>
+                    </>
+                  )}
+
+                  <DropdownMenuSeparator />
+
+                  <DropdownMenuItem
+                    onClick={handleLogout}
+                    className="text-red-600 focus:text-red-700 dark:text-red-400 flex items-center gap-2 cursor-pointer font-semibold"
+                  >
+                    <LogOut className="h-3.5 w-3.5" />
+                    <span>Sign Out</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Button asChild variant="outline" size="sm" className="text-xs h-8">
                   <Link href="/login">Sign In</Link>
                 </Button>
-                <Button asChild size="sm" className="text-xs">
-                  <Link href="/register">Register Patient</Link>
+                <Button asChild size="sm" className="text-xs h-8 bg-blue-600 hover:bg-blue-700">
+                  <Link href="/register">Register</Link>
                 </Button>
               </div>
             )}
