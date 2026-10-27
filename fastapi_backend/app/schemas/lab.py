@@ -51,10 +51,18 @@ class LabOrderUpdate(BaseModel):
     completed_at: Optional[datetime] = None
 
 
+class LabOrderCompleteRequest(BaseModel):
+    results: str = Field(..., min_length=2, description="Laboratory investigation findings and results")
+    notes: Optional[str] = None
+
+
 class LabOrderOut(LabOrderBase):
     id: int
     ordered_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     lab_test: Optional[LabTestOut] = None
+    patient_id: Optional[int] = None
+    patient_name: Optional[str] = None
+    doctor_name: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)

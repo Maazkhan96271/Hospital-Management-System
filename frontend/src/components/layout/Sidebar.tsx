@@ -26,6 +26,8 @@ import {
   LogIn,
   UserPlus,
   Search,
+  Pill,
+  FlaskConical,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -77,6 +79,13 @@ export function Sidebar({ onOpenSearch, canSearch }: SidebarProps) {
           ],
         },
         {
+          section: "Clinical & Operations",
+          items: [
+            { title: "Pharmacy POS", href: "/pharmacy", icon: Pill, badge: "POS" },
+            { title: "Laboratory Portal", href: "/lab", icon: FlaskConical },
+          ],
+        },
+        {
           section: "Shortcuts",
           items: [
             { title: "Public Directory", href: "/directory", icon: Stethoscope },
@@ -97,9 +106,52 @@ export function Sidebar({ onOpenSearch, canSearch }: SidebarProps) {
           ],
         },
         {
+          section: "Hospital Services",
+          items: [
+            { title: "Pharmacy POS", href: "/pharmacy", icon: Pill },
+            { title: "Laboratory Portal", href: "/lab", icon: FlaskConical },
+          ],
+        },
+        {
           section: "Hospital",
           items: [
             { title: "Doctors Directory", href: "/doctors", icon: Stethoscope },
+          ],
+        },
+      ];
+    }
+
+    if (role === "Pharmacist") {
+      return [
+        {
+          section: "Pharmacy Services",
+          items: [
+            { title: "Pharmacy POS", href: "/pharmacy", icon: Pill, badge: "Active" },
+            { title: "Laboratory Portal", href: "/lab", icon: FlaskConical },
+          ],
+        },
+        {
+          section: "Hospital",
+          items: [
+            { title: "Public Directory", href: "/directory", icon: Stethoscope },
+          ],
+        },
+      ];
+    }
+
+    if (role === "LabTechnician") {
+      return [
+        {
+          section: "Laboratory Services",
+          items: [
+            { title: "Laboratory Portal", href: "/lab", icon: FlaskConical, badge: "Active" },
+            { title: "Pharmacy POS", href: "/pharmacy", icon: Pill },
+          ],
+        },
+        {
+          section: "Hospital",
+          items: [
+            { title: "Public Directory", href: "/directory", icon: Stethoscope },
           ],
         },
       ];

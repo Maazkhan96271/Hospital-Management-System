@@ -39,3 +39,32 @@ class PharmacyItemOut(PharmacyItemBase):
     updated_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class RestockItemRequest(BaseModel):
+    quantity_to_add: int = Field(50, ge=1, description="Quantity to increment stock by")
+
+
+class PrescribedMedicationLine(BaseModel):
+    name: str
+    dosage: Optional[str] = None
+    duration: Optional[str] = None
+    quantity: int = 1
+    unit_price: float = 0.0
+    pharmacy_item_id: Optional[int] = None
+    is_in_stock: bool = True
+
+
+class PendingPrescriptionOut(BaseModel):
+    appointment_id: int
+    patient_id: int
+    patient_name: str
+    patient_email: Optional[str] = None
+    doctor_name: str
+    appointment_date: str
+    diagnosis: str
+    medications: list[PrescribedMedicationLine] = []
+    invoice_number: Optional[str] = None
+    invoice_id: Optional[int] = None
+    status: str = "Pending"  # "Pending" | "Dispensed"
+    total_amount: float = 0.0

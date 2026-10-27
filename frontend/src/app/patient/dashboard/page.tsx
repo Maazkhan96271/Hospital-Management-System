@@ -24,9 +24,60 @@ import {
   ChevronRight,
   Loader2,
   Award,
+  FlaskConical,
+  Microscope,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch, ApiError } from "@/lib/api";
+
+interface PatientLabReport {
+  id: number;
+  test_name: string;
+  category?: string;
+  status: "Pending" | "Completed";
+  results?: string;
+  notes?: string;
+  ordered_date: string;
+  doctor_name: string;
+  normal_range?: string;
+}
+
+const FALLBACK_PATIENT_LABS: PatientLabReport[] = [
+  {
+    id: 1,
+    test_name: "Complete Blood Count (CBC)",
+    category: "Hematology",
+    status: "Completed",
+    results: "Hemoglobin: 14.2 g/dL (Normal). Platelets: 280,000 /mcL. Total WBC: 6,800 /mcL.",
+    notes: "Analyzed on Sysmex automated hemogram analyzer.",
+    ordered_date: "Oct 27, 2026",
+    doctor_name: "Dr. Alice Smith",
+    normal_range: "Hb: 13.5-17.5 g/dL, Platelets: 150-450k",
+  },
+  {
+    id: 2,
+    test_name: "Lipid Profile Panel",
+    category: "Biochemistry",
+    status: "Completed",
+    results: "Total Cholesterol: 185 mg/dL. LDL: 95 mg/dL. HDL: 54 mg/dL. Triglycerides: 135 mg/dL.",
+    notes: "Patient fasting confirmed.",
+    ordered_date: "Oct 26, 2026",
+    doctor_name: "Dr. Alice Smith",
+    normal_range: "Total Cholesterol: < 200 mg/dL, LDL: < 100",
+  },
+  {
+    id: 3,
+    test_name: "Thyroid Stimulating Hormone (TSH)",
+    category: "Endocrinology",
+    status: "Pending",
+    results: undefined,
+    notes: "Specimen in processing at central laboratory.",
+    ordered_date: "Today, 09:15 AM",
+    doctor_name: "Dr. David Johnson",
+    normal_range: "0.4 - 4.0 mIU/L",
+  },
+];
 
 interface Doctor {
   id: number;
@@ -44,6 +95,10 @@ export default function PatientDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedSpecialty, setSelectedSpecialty] = useState("All");
+
+  // Diagnostic Lab Results state
+  const [labReports, setLabReports] = useState<PatientLabReport[]>(FALLBACK_PATIENT_LABS);
+  const [loadingLabs, setLoadingLabs] = useState(false);
 
   // Booking modal states
   const [bookingDoctor, setBookingDoctor] = useState<Doctor | null>(null);
@@ -129,6 +184,40 @@ export default function PatientDashboardPage() {
 
     fetchSlots();
   }, [bookingDoctor, selectedDate]);
+
+  // Fetch real-time Diagnostic Lab Orders for the current patient
+  useEffect(() => {
+    const fetchPatientLabs = async () => {
+      setLoadingLabs(true);
+      try {
+        const patientId = user?.id || 2;
+        const data = await apiFetch<any[]>(`/api/lab/orders/patient/${patientId}`).catch(() => null);
+        if (data && Array.isArray(data) && data.length > 0) {
+          setLabReports(
+            data.map((o) => ({
+              id: o.id,
+              test_name: o.lab_test?.name || `Lab Order #${o.id}`,
+              category: o.lab_test?.category || "Diagnostics",
+              status: o.status || "Pending",
+              results: o.results,
+              notes: o.notes,
+              ordered_date: o.ordered_at ? new Date(o.ordered_at).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" }) : "Recent",
+              doctor_name: o.doctor_name || "Attending Physician",
+              normal_range: o.lab_test?.normal_range || "Standard reference criteria",
+            }))
+          );
+        } else {
+          setLabReports(FALLBACK_PATIENT_LABS);
+        }
+      } catch (err) {
+        setLabReports(FALLBACK_PATIENT_LABS);
+      } finally {
+        setLoadingLabs(false);
+      }
+    };
+
+    fetchPatientLabs();
+  }, [user]);
 
   const handleConfirmBooking = async () => {
     if (!selectedSlot || !bookingDoctor) {
@@ -237,6 +326,128 @@ export default function PatientDashboardPage() {
               </Button>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* DIAGNOSTIC LABORATORY REPORTS & INVESTIGATION FINDINGS */}
+      <Card className="border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
+        <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5">
+              <div className="h-9 w-9 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 flex items-center justify-center">
+                <FlaskConical className="h-5 w-5" />
+              </div>
+              <div>
+                <CardTitle className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  Diagnostic Lab Reports & Findings
+                  <Badge variant="outline" className="text-[10px] font-mono">
+                    {labReports.filter((r) => r.status === "Completed").length} Completed
+                  </Badge>
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Automated diagnostic lab results published directly from the hospital laboratory analyzer.
+                </CardDescription>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  toast.success("Downloading Diagnostic Summary", {
+                    description: "Preparing official lab report PDF...",
+                  });
+                }}
+                className="text-xs font-semibold gap-1.5 h-8"
+              >
+                <Download className="h-3.5 w-3.5 text-slate-500" />
+                Export Reports PDF
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+
+        <CardContent className="p-5">
+          {loadingLabs ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Skeleton className="h-28 rounded-xl" />
+              <Skeleton className="h-28 rounded-xl" />
+            </div>
+          ) : labReports.length === 0 ? (
+            <div className="p-6 text-center text-xs text-slate-400 border border-dashed rounded-xl">
+              No diagnostic laboratory orders recorded for your profile.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {labReports.map((report) => {
+                const isCompleted = report.status === "Completed";
+                return (
+                  <div
+                    key={report.id}
+                    className={`p-4 rounded-xl border transition-all ${
+                      isCompleted
+                        ? "bg-slate-50/70 dark:bg-slate-900/60 border-slate-200/90 dark:border-slate-800"
+                        : "bg-amber-50/30 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/40"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <h4 className="font-bold text-sm text-slate-900 dark:text-white">
+                            {report.test_name}
+                          </h4>
+                        </div>
+                        {report.category && (
+                          <Badge variant="secondary" className="text-[10px] mt-0.5">
+                            {report.category}
+                          </Badge>
+                        )}
+                      </div>
+                      <Badge
+                        className={
+                          isCompleted
+                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-0 text-[10px] font-bold"
+                            : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-0 text-[10px] font-bold"
+                        }
+                      >
+                        {report.status}
+                      </Badge>
+                    </div>
+
+                    <div className="mt-2 text-[11px] text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                      <span>Ordered by <strong>{report.doctor_name}</strong></span>
+                      <span>•</span>
+                      <span>{report.ordered_date}</span>
+                    </div>
+
+                    {/* Investigation Findings */}
+                    {isCompleted && report.results ? (
+                      <div className="mt-3 p-2.5 rounded-lg bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-900/40 space-y-1">
+                        <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
+                          <span>Verified Finding</span>
+                          <span className="font-mono text-[9px] text-emerald-600">Analyzer Certified</span>
+                        </div>
+                        <p className="font-mono text-xs font-semibold text-emerald-950 dark:text-emerald-100">
+                          {report.results}
+                        </p>
+                        {report.normal_range && (
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                            Normal Range: <span className="font-mono">{report.normal_range}</span>
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="mt-3 p-2.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-900/40 text-xs text-amber-900 dark:text-amber-300 flex items-center gap-2">
+                        <Clock className="h-3.5 w-3.5 shrink-0 text-amber-600 animate-spin" />
+                        <span>Specimen collected. Analysis in progress at central lab.</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
 

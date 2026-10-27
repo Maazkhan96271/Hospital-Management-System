@@ -471,6 +471,61 @@ async def run_all_tests():
 
             print("✅ EMR & HIS Models (Vitals, PharmacyItem, LabTest, LabOrder, Invoice, InvoiceItem) verified in FastAPI.")
 
+        # ==============================================================================
+        # 14. Test Pharmacy POS & Laboratory Portal Endpoints
+        # ==============================================================================
+        # 14.1 Pharmacy low stock & restock
+        low_stock_res = await client.get("/api/pharmacy/low-stock")
+        assert low_stock_res.status_code == 200
+
+        restock_res = await client.patch(
+            f"/api/pharmacy/items/{pharm_item.id}/restock",
+            json={"quantity_to_add": 50},
+        )
+        assert restock_res.status_code == 200
+        assert restock_res.json()["stock_quantity"] == 550
+        print("✅ Pharmacy restock API verified successfully.")
+
+        # 14.2 Pending Prescriptions Queue & Dispensing
+        presc_res = await client.get("/api/pharmacy/prescriptions/pending")
+        assert presc_res.status_code == 200
+        prescriptions = presc_res.json()
+        assert len(prescriptions) >= 1
+        assert prescriptions[0]["appointment_id"] == appointment_id
+
+        dispense_res = await client.post(f"/api/pharmacy/prescriptions/{appointment_id}/dispense")
+        assert dispense_res.status_code == 200
+        assert dispense_res.json()["status"] == "success"
+        print("✅ Pharmacy POS dispense workflow executed successfully.")
+
+        # 14.3 Lab Orders queue & completion
+        lab_orders_res = await client.get("/api/lab/orders?status=Pending")
+        assert lab_orders_res.status_code == 200
+        orders = lab_orders_res.json()
+        assert len(orders) >= 1
+        target_order = orders[0]
+        assert target_order["status"] == "Pending"
+
+        # Complete the lab order
+        complete_lab_res = await client.post(
+            f"/api/lab/orders/{target_order['id']}/complete",
+            json={
+                "results": "Hemoglobin: 14.2 g/dL (Normal). Platelets: 280,000 /mcL.",
+                "notes": "Verified by automated clinical analyzer.",
+            },
+        )
+        assert complete_lab_res.status_code == 200
+        completed_order = complete_lab_res.json()
+        assert completed_order["status"] == "Completed"
+        assert "Hemoglobin: 14.2 g/dL" in completed_order["results"]
+
+        # 14.4 Patient Lab History: verify completed result appears on patient view
+        patient_labs_res = await client.get(f"/api/lab/orders/patient/{patient_user.id}")
+        assert patient_labs_res.status_code == 200
+        patient_orders = patient_labs_res.json()
+        assert any(o["status"] == "Completed" and "Hemoglobin" in (o["results"] or "") for o in patient_orders)
+        print("✅ Laboratory Portal results successfully populated and verified on Patient Lab records!")
+
     print("\n🎉 ALL APPOINTMENT BOOKING ENGINE TESTS PASSED CLEANLY!")
 
 
