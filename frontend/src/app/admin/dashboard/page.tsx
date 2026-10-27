@@ -41,6 +41,13 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
+import {
   Users,
   Stethoscope,
   CalendarCheck,
@@ -54,6 +61,10 @@ import {
   TrendingUp,
   PieChart as PieIcon,
   RefreshCw,
+  Mail,
+  Phone,
+  ShieldCheck,
+  Activity,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -94,6 +105,8 @@ export default function AdminDashboardPage() {
   const [globalFilter, setGlobalFilter] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("All");
   const [sorting, setSorting] = useState<SortingState>([]);
+  const [selectedUserForSheet, setSelectedUserForSheet] = useState<ManagedUser | null>(null);
+  const [isUserSheetOpen, setIsUserSheetOpen] = useState(false);
 
   // Simulate data fetch with skeleton loading
   useEffect(() => {
@@ -163,17 +176,27 @@ export default function AdminDashboardPage() {
             .join("")
             .slice(0, 2);
           return (
-            <div className="flex items-center gap-3">
-              <Avatar className="h-8 w-8 text-xs font-bold">
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedUserForSheet(user);
+                setIsUserSheetOpen(true);
+              }}
+              className="flex items-center gap-3 text-left group hover:opacity-85 transition-opacity cursor-pointer"
+            >
+              <Avatar className="h-8 w-8 text-xs font-bold border border-slate-200 dark:border-slate-700">
                 <AvatarFallback className="bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
                   {initials}
                 </AvatarFallback>
               </Avatar>
               <div>
-                <p className="font-bold text-slate-900 dark:text-white leading-none">{user.name}</p>
+                <p className="font-bold text-slate-900 dark:text-white leading-none group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors flex items-center gap-1">
+                  {user.name}
+                  <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </p>
                 <p className="text-[11px] text-slate-400 mt-1">{user.email}</p>
               </div>
-            </div>
+            </button>
           );
         },
       },
@@ -632,6 +655,132 @@ export default function AdminDashboardPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* ========================================================================= */}
+      {/* SLIDE-OUT SHEET: USER MINI-PROFILE                                        */}
+      {/* ========================================================================= */}
+      <Sheet open={isUserSheetOpen} onOpenChange={setIsUserSheetOpen}>
+        <SheetContent className="w-full sm:max-w-md overflow-y-auto p-0 flex flex-col bg-white dark:bg-slate-900">
+          {selectedUserForSheet && (
+            <div className="flex-1 flex flex-col justify-between">
+              <div>
+                {/* Header Banner */}
+                <div className="p-6 border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-3.5">
+                      <Avatar className="h-12 w-12 border-2 border-blue-500/30">
+                        <AvatarFallback className="bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 font-black text-sm">
+                          {selectedUserForSheet.name
+                            .split(" ")
+                            .map((n) => n[0])
+                            .join("")
+                            .slice(0, 2)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <SheetTitle className="text-xl font-black text-slate-900 dark:text-white">
+                            {selectedUserForSheet.name}
+                          </SheetTitle>
+                          <Badge variant="outline" className="text-[10px] font-mono">
+                            #{selectedUserForSheet.id}
+                          </Badge>
+                        </div>
+                        <SheetDescription className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
+                          <Mail className="h-3 w-3" />
+                          {selectedUserForSheet.email}
+                        </SheetDescription>
+                      </div>
+                    </div>
+
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
+                        selectedUserForSheet.status === "Active"
+                          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                          : "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300"
+                      }`}
+                    >
+                      {selectedUserForSheet.status}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Profile Details */}
+                <div className="p-6 space-y-5 text-xs">
+                  <div className="grid grid-cols-2 gap-3 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-bold">Assigned Role</span>
+                      <strong className="text-slate-900 dark:text-white font-semibold">
+                        {selectedUserForSheet.role}
+                      </strong>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-bold">Clinical Department</span>
+                      <strong className="text-slate-900 dark:text-white font-semibold">
+                        {selectedUserForSheet.department}
+                      </strong>
+                    </div>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 space-y-1">
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold">Registration Date</span>
+                    <p className="font-mono text-slate-700 dark:text-slate-300">
+                      Member since {selectedUserForSheet.joined_date}
+                    </p>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-900/40 space-y-1.5">
+                    <span className="font-bold text-blue-900 dark:text-blue-200 flex items-center gap-1.5">
+                      <ShieldCheck className="h-3.5 w-3.5 text-blue-600" />
+                      Administrative Control
+                    </span>
+                    <p className="text-blue-700 dark:text-blue-300 text-[11px]">
+                      Admins can toggle access permissions, investigate security flags, or blacklist accounts from the hospital registry.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Footer */}
+              <div className="p-4 border-t border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/60 flex items-center justify-between gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsUserSheetOpen(false)}
+                  className="text-xs"
+                >
+                  Close
+                </Button>
+                <Button
+                  size="sm"
+                  variant={selectedUserForSheet.status === "Active" ? "destructive" : "default"}
+                  onClick={() => {
+                    toggleStatus(selectedUserForSheet.id);
+                    setSelectedUserForSheet((prev) =>
+                      prev
+                        ? { ...prev, status: prev.status === "Active" ? "Blacklisted" : "Active" }
+                        : null
+                    );
+                  }}
+                  className="text-xs font-bold gap-1.5"
+                >
+                  {selectedUserForSheet.status === "Active" ? (
+                    <>
+                      <UserX className="h-3.5 w-3.5" />
+                      Blacklist Account
+                    </>
+                  ) : (
+                    <>
+                      <UserCheck className="h-3.5 w-3.5" />
+                      Restore Account
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
