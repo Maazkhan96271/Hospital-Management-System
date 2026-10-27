@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Add Patient – Admin – HMS{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1"><i class="bi bi-person-plus-fill text-info"></i> Add New Patient</h2>
+        <p class="text-muted mb-0">Create a patient account with medical portal access.</p>
+    </div>
+    <a href="{{ url_for('admin_patients') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left"></i> Back to Patients
+    </a>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card shadow border-0">
+            <div class="card-body p-4 p-md-5">
+                <form method="POST" class="needs-validation" novalidate>
+                    {{ form.hidden_tag() }}
+
+                    <h5 class="text-info mb-3"><i class="bi bi-person"></i> Personal Information</h5>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            {{ form.first_name.label(class="form-label fw-semibold") }}
+                            {{ form.first_name(class="form-control" + (" is-invalid" if form.first_name.errors else ""), placeholder="First name", required=True, maxlength="50") }}
+                            <div class="invalid-feedback">First name is required (max 50 chars).</div>
+                            {% for e in form.first_name.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+                        </div>
+                        <div class="col-md-6">
+                            {{ form.last_name.label(class="form-label fw-semibold") }}
+                            {{ form.last_name(class="form-control" + (" is-invalid" if form.last_name.errors else ""), placeholder="Last name", required=True, maxlength="50") }}
+                            <div class="invalid-feedback">Last name is required (max 50 chars).</div>
+                            {% for e in form.last_name.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            {{ form.username.label(class="form-label fw-semibold") }}
+                            <div class="input-group has-validation">
+                                <span class="input-group-text"><i class="bi bi-person"></i></span>
+                                {{ form.username(class="form-control" + (" is-invalid" if form.username.errors else ""), placeholder="Username", required=True, minlength="3", maxlength="80") }}
+                                <div class="invalid-feedback">Username must be between 3 and 80 characters.</div>
+                            </div>
+                            {% for e in form.username.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+                        </div>
+                        <div class="col-md-6">
+                            {{ form.email.label(class="form-label fw-semibold") }}
+                            <div class="input-group has-validation">
+                                <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                                {{ form.email(class="form-control" + (" is-invalid" if form.email.errors else ""), placeholder="Email address", required=True, type="email") }}
+                                <div class="invalid-feedback">Please enter a valid email address.</div>
+                            </div>
+                            {% for e in form.email.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            {{ form.phone.label(class="form-label fw-semibold") }}
+                            <div class="input-group has-validation">
+                                <span class="input-group-text"><i class="bi bi-telephone"></i></span>
+                                {{ form.phone(class="form-control" + (" is-invalid" if form.phone.errors else ""), placeholder="+1 (555) 000-0000", maxlength="20") }}
+                                <div class="invalid-feedback">Phone cannot exceed 20 characters.</div>
+                            </div>
+                            {% for e in form.phone.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+                        </div>
+                        <div class="col-md-6">
+                            {{ form.password.label(class="form-label fw-semibold") }}
+                            <div class="input-group has-validation">
+                                <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                                {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else ""), placeholder="Initial password", required=True, minlength="6") }}
+                                <div class="invalid-feedback">Password must be at least 6 characters.</div>
+                            </div>
+                            {% for e in form.password.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+                        <a href="{{ url_for('admin_patients') }}" class="btn btn-outline-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-info text-white px-4">
+                            <i class="bi bi-check2-circle"></i> Create Patient Account
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

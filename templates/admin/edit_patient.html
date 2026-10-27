@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}Edit Patient – Admin – HMS{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="mb-1"><i class="bi bi-pencil-square text-info"></i> Edit Patient: {{ patient.full_name }}</h2>
+        <p class="text-muted mb-0">Update contact information, account status, or reset credentials.</p>
+    </div>
+    <a href="{{ url_for('admin_patients') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left"></i> Back to Patients
+    </a>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card shadow border-0">
+            <div class="card-body p-4 p-md-5">
+                <!-- Read-only meta info bar -->
+                <div class="alert alert-light border d-flex flex-wrap gap-3 align-items-center mb-4">
+                    <div><strong>Patient ID:</strong> #{{ patient.id }}</div>
+                    <div><strong>Username:</strong> <code>{{ patient.username }}</code></div>
+                    <div><strong>Registered:</strong> {{ patient.created_at.strftime('%Y-%m-%d') if patient.created_at else '—' }}</div>
+                    <div><strong>Consultations:</strong> {{ patient.patient_appointments.count() }}</div>
+                </div>
+
+                <form method="POST" class="needs-validation" novalidate>
+                    {{ form.hidden_tag() }}
+
+                    <h5 class="text-info mb-3"><i class="bi bi-person"></i> Personal & Contact Details</h5>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            {{ form.first_name.label(class="form-label fw-semibold") }}
+                            {{ form.first_name(class="form-control" + (" is-invalid" if form.first_name.errors else ""), required=True, maxlength="50") }}
+                            <div class="invalid-feedback">First name is required.</div>
+                            {% for e in form.first_name.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+                        </div>
+                        <div class="col-md-6">
+                            {{ form.last_name.label(class="form-label fw-semibold") }}
+                            {{ form.last_name(class="form-control" + (" is-invalid" if form.last_name.errors else ""), required=True, maxlength="50") }}
+                            <div class="invalid-feedback">Last name is required.</div>
+                            {% for e in form.last_name.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            {{ form.email.label(class="form-label fw-semibold") }}
+                            <div class="input-group has-validation">
+                                <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                                {{ form.email(class="form-control" + (" is-invalid" if form.email.errors else ""), required=True, type="email") }}
+                                <div class="invalid-feedback">Valid email address is required.</div>
+                            </div>
+                            {% for e in form.email.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+                        </div>
+                        <div class="col-md-6">
+                            {{ form.phone.label(class="form-label fw-semibold") }}
+                            <div class="input-group has-validation">
+                                <span class="input-group-text"><i class="bi bi-telephone"></i></span>
+                                {{ form.phone(class="form-control", maxlength="20") }}
+                                <div class="invalid-feedback">Phone cannot exceed 20 characters.</div>
+                            </div>
+                            {% for e in form.phone.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            {{ form.password.label(class="form-label fw-semibold") }}
+                            <div class="input-group has-validation">
+                                <span class="input-group-text"><i class="bi bi-key"></i></span>
+                                {{ form.password(class="form-control", placeholder="Leave blank to keep current password", minlength="6") }}
+                                <div class="invalid-feedback">If resetting, password must be at least 6 characters.</div>
+                            </div>
+                            <small class="text-muted">Enter a new password only if you wish to reset it.</small>
+                            {% for e in form.password.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+                        </div>
+                        <div class="col-md-6 d-flex align-items-center pt-3">
+                            <div class="form-check form-switch mt-2">
+                                {{ form.is_active(class="form-check-input", id="isActiveSwitch") }}
+                                <label class="form-check-label fw-semibold" for="isActiveSwitch">
+                                    Account Active (Uncheck to Blacklist)
+                                </label>
+                                <small class="d-block text-muted">Blacklisted patients cannot sign in or schedule appointments.</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center pt-3 border-top">
+                        <form action="{{ url_for('admin_delete_patient', patient_id=patient.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Permanently remove patient {{ patient.full_name }}?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="button" class="btn btn-outline-danger btn-sm" onclick="if(confirm('Permanently delete patient {{ patient.full_name }}?')) this.form.submit();">
+                                <i class="bi bi-trash3"></i> Delete Patient
+                            </button>
+                        </form>
+                        <div class="d-flex gap-2">
+                            <a href="{{ url_for('admin_patients') }}" class="btn btn-outline-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-info text-white px-4">
+                                <i class="bi bi-check2-circle"></i> Save Changes
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
