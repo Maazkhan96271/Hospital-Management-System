@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from app.models.role import Role
     from app.models.doctor_profile import DoctorProfile
     from app.models.appointment import Appointment
+    from app.models.billing import Invoice
 
 
 class User(Base):
@@ -71,6 +72,12 @@ class User(Base):
         "Appointment",
         back_populates="patient",
         foreign_keys="Appointment.patient_id",
+        cascade="all, delete-orphan",
+    )
+    invoices: Mapped[List["Invoice"]] = relationship(
+        "Invoice",
+        back_populates="patient",
+        foreign_keys="Invoice.patient_id",
         cascade="all, delete-orphan",
     )
 

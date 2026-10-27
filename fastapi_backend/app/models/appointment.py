@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Optional, TYPE_CHECKING
+from typing import List, Optional, TYPE_CHECKING
 from sqlalchemy import (
     DateTime,
     ForeignKey,
@@ -20,6 +20,9 @@ if TYPE_CHECKING:
     from app.models.user import User
     from app.models.doctor_profile import DoctorProfile
     from app.models.treatment_record import TreatmentRecord
+    from app.models.vitals import Vitals
+    from app.models.lab import LabOrder
+    from app.models.billing import Invoice
 
 
 class AppointmentStatus(str, Enum):
@@ -115,6 +118,21 @@ class Appointment(Base):
         back_populates="appointment",
         uselist=False,
         cascade="all, delete-orphan",
+    )
+    vitals: Mapped[Optional["Vitals"]] = relationship(
+        "Vitals",
+        back_populates="appointment",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+    lab_orders: Mapped[List["LabOrder"]] = relationship(
+        "LabOrder",
+        back_populates="appointment",
+        cascade="all, delete-orphan",
+    )
+    invoices: Mapped[List["Invoice"]] = relationship(
+        "Invoice",
+        back_populates="appointment",
     )
 
     def __repr__(self) -> str:

@@ -32,6 +32,10 @@ from app.models.department import Department
 from app.models.doctor_profile import DoctorProfile, DEFAULT_WEEKLY_AVAILABILITY
 from app.models.appointment import Appointment, AppointmentStatus
 from app.models.treatment_record import TreatmentRecord
+from app.models.vitals import Vitals
+from app.models.pharmacy import PharmacyItem
+from app.models.lab import LabTest, LabOrder, LabOrderStatus
+from app.models.billing import Invoice, InvoiceItem, PaymentStatus, PaymentMethod
 from app.main import app
 
 
@@ -396,6 +400,76 @@ async def run_all_tests():
         ).json()
         assert refreshed_agenda["completed_count"] >= 1
         print("✅ Doctor agenda dynamically reflected Completed appointment status.")
+
+        # ==============================================================================
+        # 13. Test EMR & HIS Models: Vitals, PharmacyItem, LabTest, LabOrder, Invoice
+        # ==============================================================================
+        async with AsyncSessionLocal() as session:
+            # 13.1 Vitals Model linked to Appointment
+            vitals = Vitals(
+                appointment_id=appointment_id,
+                height=180.0,
+                weight=81.0,
+                blood_pressure="120/80",
+                temperature=98.6,
+                pulse=72,
+                respiratory_rate=16,
+                oxygen_saturation=99.0,
+                notes="Patient vitals in normal range.",
+            )
+            vitals.calculate_bmi()
+            assert vitals.bmi == 25.0
+            session.add(vitals)
+
+            # 13.2 PharmacyItem Inventory Model
+            pharm_item = PharmacyItem(
+                name="Paracetamol 500mg",
+                stock_quantity=500,
+                price_per_unit=5.0,
+                expiry_date=dt_date.today() + timedelta(days=365),
+                sku="PAR-500-TAB",
+                category="Analgesic",
+                unit="tablet",
+            )
+            session.add(pharm_item)
+
+            # 13.3 LabTest Model
+            lab_test = LabTest(
+                name="Complete Blood Count",
+                cost=350.0,
+                normal_range="13.5-17.5 g/dL",
+                category="Hematology",
+            )
+            session.add(lab_test)
+            await session.flush()
+
+            # 13.4 LabOrder Model linked to Appointment & LabTest
+            lab_order = LabOrder(
+                appointment_id=appointment_id,
+                lab_test_id=lab_test.id,
+                status=LabOrderStatus.PENDING.value,
+                notes="Fasting sample collected",
+            )
+            session.add(lab_order)
+
+            # 13.5 Invoice Model linked to Patient & Appointment
+            invoice = Invoice(
+                invoice_number="INV-FASTAPI-001",
+                patient_id=patient_user.id,
+                appointment_id=appointment_id,
+                payment_status=PaymentStatus.UNPAID.value,
+                payment_method=PaymentMethod.CASH.value,
+            )
+            invoice.add_item(description="Consultation Fee", quantity=1, unit_price=500.0)
+            invoice.add_item(description="Paracetamol", quantity=2, unit_price=5.0)
+            invoice.add_item(description="Blood Test", quantity=1, unit_price=350.0)
+            session.add(invoice)
+            await session.flush()
+
+            assert invoice.total_amount == 860.0
+            await session.commit()
+
+            print("✅ EMR & HIS Models (Vitals, PharmacyItem, LabTest, LabOrder, Invoice, InvoiceItem) verified in FastAPI.")
 
     print("\n🎉 ALL APPOINTMENT BOOKING ENGINE TESTS PASSED CLEANLY!")
 

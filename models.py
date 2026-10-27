@@ -13,6 +13,15 @@ from flask_app.models import (
     AppointmentStatus,
     Treatment,
     DEFAULT_7DAY_SCHEDULE,
+    Vitals,
+    PharmacyItem,
+    LabTest,
+    LabOrder,
+    LabOrderStatus,
+    Invoice,
+    InvoiceItem,
+    PaymentStatus,
+    PaymentMethod,
 )
 
 __all__ = [
@@ -25,4 +34,13 @@ __all__ = [
     "AppointmentStatus",
     "Treatment",
     "DEFAULT_7DAY_SCHEDULE",
+    "Vitals",
+    "PharmacyItem",
+    "LabTest",
+    "LabOrder",
+    "LabOrderStatus",
+    "Invoice",
+    "InvoiceItem",
+    "PaymentStatus",
+    "PaymentMethod",
 ]

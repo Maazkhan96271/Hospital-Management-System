@@ -44,5 +44,29 @@ class Appointment(db.Model):
         cascade="all, delete-orphan",
     )
 
+    # 1-to-1 relationship to Vitals (EMR)
+    vitals = db.relationship(
+        "Vitals",
+        backref="appointment",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+
+    # 1-to-many relationship to LabOrder
+    lab_orders = db.relationship(
+        "LabOrder",
+        backref="appointment",
+        cascade="all, delete-orphan",
+        lazy="dynamic",
+    )
+
+    # 1-to-many relationship to Invoice
+    invoices = db.relationship(
+        "Invoice",
+        backref="appointment",
+        cascade="all, delete-orphan",
+        lazy="dynamic",
+    )
+
     def __repr__(self) -> str:
         return f"<Appointment #{self.id} | Patient #{self.patient_id} -> Doctor #{self.doctor_id} | {self.status}>"

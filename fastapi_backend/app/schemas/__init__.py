@@ -27,6 +27,37 @@ from app.schemas.treatment import (
     TreatmentRecordUpdate,
     TreatmentRecordOut,
 )
+from app.schemas.vitals import (
+    VitalsBase,
+    VitalsCreate,
+    VitalsUpdate,
+    VitalsOut,
+)
+from app.schemas.pharmacy import (
+    PharmacyItemBase,
+    PharmacyItemCreate,
+    PharmacyItemUpdate,
+    PharmacyItemOut,
+)
+from app.schemas.lab import (
+    LabTestBase,
+    LabTestCreate,
+    LabTestUpdate,
+    LabTestOut,
+    LabOrderBase,
+    LabOrderCreate,
+    LabOrderUpdate,
+    LabOrderOut,
+)
+from app.schemas.billing import (
+    InvoiceItemBase,
+    InvoiceItemCreate,
+    InvoiceItemOut,
+    InvoiceBase,
+    InvoiceCreate,
+    InvoiceUpdate,
+    InvoiceOut,
+)
 
 __all__ = [
     "Token",
@@ -60,4 +91,27 @@ __all__ = [
     "TreatmentRecordCreate",
     "TreatmentRecordUpdate",
     "TreatmentRecordOut",
+    "VitalsBase",
+    "VitalsCreate",
+    "VitalsUpdate",
+    "VitalsOut",
+    "PharmacyItemBase",
+    "PharmacyItemCreate",
+    "PharmacyItemUpdate",
+    "PharmacyItemOut",
+    "LabTestBase",
+    "LabTestCreate",
+    "LabTestUpdate",
+    "LabTestOut",
+    "LabOrderBase",
+    "LabOrderCreate",
+    "LabOrderUpdate",
+    "LabOrderOut",
+    "InvoiceItemBase",
+    "InvoiceItemCreate",
+    "InvoiceItemOut",
+    "InvoiceBase",
+    "InvoiceCreate",
+    "InvoiceUpdate",
+    "InvoiceOut",
 ]

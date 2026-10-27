@@ -44,6 +44,13 @@ class User(UserMixin, db.Model):
         lazy="dynamic",
         cascade="all, delete-orphan",
     )
+    patient_invoices = db.relationship(
+        "Invoice",
+        foreign_keys="Invoice.patient_id",
+        backref="patient",
+        lazy="dynamic",
+        cascade="all, delete-orphan",
+    )
 
     def set_password(self, password: str) -> None:
         """Hash and store password using Werkzeug PBKDF2."""
