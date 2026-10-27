@@ -272,8 +272,8 @@ export default function AdminPatientsPage() {
 
       {/* TanStack Data Table */}
       <Card className="border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden bg-white dark:bg-slate-900">
-        <div className="overflow-x-auto">
-          <Table>
+        <div className="overflow-x-auto w-full scrollbar-thin">
+          <Table className="min-w-full">
             <TableHeader className="bg-slate-50/80 dark:bg-slate-950/40 border-b border-slate-200 dark:border-slate-800">
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>

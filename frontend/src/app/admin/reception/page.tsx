@@ -624,7 +624,8 @@ export default function LiveReceptionQueuePage() {
 
               {/* Patient Queue Appointments Table */}
               <CardContent className="p-0">
-                <Table>
+                <div className="overflow-x-auto w-full scrollbar-thin">
+                  <Table className="min-w-full">
                   <TableHeader>
                     <TableRow className="bg-slate-50/50 dark:bg-slate-950/40">
                       <TableHead className="text-xs font-bold uppercase w-28">Queue Token</TableHead>
@@ -786,7 +787,8 @@ export default function LiveReceptionQueuePage() {
                     )}
                   </TableBody>
                 </Table>
-              </CardContent>
+              </div>
+            </CardContent>
             </Card>
           ))
         )}

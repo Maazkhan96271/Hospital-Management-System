@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { BottomNav } from "@/components/layout/BottomNav";
 import { useAuth } from "@/context/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -108,15 +109,18 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         onToggleCollapse={toggleCollapse}
       />
 
-      {/* Main Content Area dynamically padded for sidebar collapse */}
+      {/* Main Content Area dynamically padded for mobile bottom nav and desktop sidebar */}
       <div
         className={cn(
-          "flex-1 flex flex-col min-w-0 transition-all duration-300 ease-in-out pt-16 lg:pt-0",
-          isCollapsed ? "lg:pl-20" : "lg:pl-68"
+          "flex-1 flex flex-col min-w-0 transition-all duration-300 ease-in-out",
+          // Mobile (< 768px): Top bar is h-16, bottom nav is h-16 (padding pb-20 pt-16), pl-0 (no left sidebar)
+          "pt-16 md:pt-0 pl-0 pb-20 md:pb-8",
+          // Desktop (>= 768px): pl-64 when expanded, pl-20 when collapsed
+          isCollapsed ? "md:pl-20" : "md:pl-64"
         )}
       >
-        {/* Top Header Bar for Desktop */}
-        <header className="hidden lg:flex h-16 px-6 items-center justify-between border-b border-slate-200/80 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md sticky top-0 z-30 shadow-xs">
+        {/* Top Header Bar for Desktop (screens >= 768px) */}
+        <header className="hidden md:flex h-16 px-6 items-center justify-between border-b border-slate-200/80 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md sticky top-0 z-30 shadow-xs">
           {/* Left: Global Search Input Front-and-Center */}
           <div className="flex items-center gap-4 flex-1 max-w-xl">
             {canUsePatientSearch ? (
@@ -308,6 +312,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
+
+      {/* Fixed Apollo 24/7-style Bottom Navigation Bar for Mobile (< 768px) */}
+      <BottomNav onOpenSearch={() => setIsSearchOpen(true)} />
 
       {/* Global Cmd+K Patient Search Modal */}
       {canUsePatientSearch && (

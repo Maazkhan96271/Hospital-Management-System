@@ -191,8 +191,8 @@ export function DataTable<T extends Record<string, any>>({
 
       {/* Advanced Table Container */}
       <div className="rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
-          <Table>
+        <div className="overflow-x-auto w-full scrollbar-thin">
+          <Table className="min-w-full">
             <TableHeader className="bg-slate-50/80 dark:bg-slate-950/50 border-b border-slate-100 dark:border-slate-800">
               <TableRow>
                 {columns.map((column, idx) => {

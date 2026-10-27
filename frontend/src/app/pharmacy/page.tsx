@@ -1273,8 +1273,8 @@ export default function PharmacyPOSPage() {
                 </div>
 
                 {/* Medication Breakdown Table */}
-                <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
-                  <Table>
+                <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-x-auto w-full scrollbar-thin">
+                  <Table className="min-w-full">
                     <TableHeader className="bg-slate-50 dark:bg-slate-900/60">
                       <TableRow>
                         <TableHead className="text-[11px] font-bold">Medicine</TableHead>

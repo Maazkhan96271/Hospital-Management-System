@@ -61,7 +61,6 @@ export function Sidebar({
   const pathname = usePathname();
   const router = useRouter();
   const { user, role, isAuthenticated, logout } = useAuth();
-  const [mobileOpen, setMobileOpen] = useState(false);
 
   // Dynamic Navigation Sections by Role
   const getNavSections = (): { section: string; items: NavItem[] }[] => {
@@ -207,13 +206,20 @@ export function Sidebar({
 
   return (
     <>
-      {/* Mobile Top Header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-[#0b132b] text-white border-b border-slate-800 z-40 px-4 flex items-center justify-between shadow-md">
+      {/* Mobile Top Header (screens < 768px) */}
+      <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-[#0b132b] text-white border-b border-slate-800 z-40 px-4 flex items-center justify-between shadow-md">
         <Link href="/" className="flex items-center gap-2.5">
           <div className="h-9 w-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/30">
             <HeartPulse className="h-5 w-5" />
           </div>
-          <span className="font-extrabold text-base tracking-tight text-white">MediCare HMS</span>
+          <div>
+            <span className="font-extrabold text-sm tracking-tight text-white block leading-tight">
+              Apollo HMS
+            </span>
+            <span className="text-[10px] text-blue-400 font-mono font-semibold">
+              FastAPI HIS
+            </span>
+          </div>
         </Link>
         <div className="flex items-center gap-2">
           <InstallPWAButton className="h-7 text-[11px] px-2 py-0.5" />
@@ -222,41 +228,23 @@ export function Sidebar({
               variant="ghost"
               size="icon"
               onClick={onOpenSearch}
-              className="text-slate-300 hover:text-white hover:bg-slate-800"
+              className="text-slate-300 hover:text-white hover:bg-slate-800 h-8 w-8"
               aria-label="Search patients"
             >
-              <Search className="h-5 w-5" />
+              <Search className="h-4 w-4" />
             </Button>
           )}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setMobileOpen(!mobileOpen)}
-            className="text-slate-300 hover:text-white hover:bg-slate-800"
-            aria-label="Toggle menu"
-          >
-            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </Button>
         </div>
       </div>
 
-      {/* Mobile Backdrop Overlay */}
-      {mobileOpen && (
-        <div
-          className="lg:hidden fixed inset-0 bg-black/70 backdrop-blur-xs z-40 transition-opacity"
-          onClick={() => setMobileOpen(false)}
-        />
-      )}
-
-      {/* Persistent Enterprise Dark Sidebar */}
+      {/* Desktop Left-Side Sidebar (hidden on mobile < 768px) */}
       <aside
         className={cn(
-          "fixed top-0 bottom-0 left-0 z-50 flex flex-col transition-all duration-300 ease-in-out shadow-2xl",
-          // Dark Enterprise Mocdoc-like Theme
+          "hidden md:flex fixed top-0 bottom-0 left-0 z-50 flex-col transition-all duration-300 ease-in-out shadow-2xl",
+          // Dark Enterprise Theme
           "bg-[#0b132b] text-slate-300 border-r border-[#1e293b]",
-          // Desktop Collapsible Width vs Mobile Slide-over
-          isCollapsed ? "lg:w-20" : "lg:w-68",
-          mobileOpen ? "w-72 translate-x-0" : "-translate-x-full lg:translate-x-0"
+          // Desktop Collapsible Width: w-64 when expanded, w-20 (mini-sidebar) when collapsed
+          isCollapsed ? "md:w-20" : "md:w-64"
         )}
       >
         {/* Brand Header */}
@@ -268,7 +256,7 @@ export function Sidebar({
               </div>
               <div className="min-w-0">
                 <span className="font-black text-base text-white tracking-tight flex items-center gap-1.5 truncate">
-                  MediCare
+                  Apollo HMS
                   <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-blue-900/80 text-blue-300 border border-blue-700/60 font-mono">
                     EMR
                   </span>
@@ -277,30 +265,21 @@ export function Sidebar({
               </div>
             </Link>
           ) : (
-            <Link href="/" className="mx-auto" title="MediCare Enterprise HIS">
+            <Link href="/" className="mx-auto" title="Apollo Enterprise HMS">
               <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-blue-700 to-blue-500 flex items-center justify-center text-white shadow-lg shadow-blue-600/30">
                 <HeartPulse className="h-5 w-5" />
               </div>
             </Link>
           )}
 
-          {/* Collapse/Expand Toggle Button (Desktop only) */}
+          {/* Collapse/Expand Toggle Button into Mini-Sidebar */}
           <button
             type="button"
             onClick={onToggleCollapse}
-            className="hidden lg:flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
-            title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+            title={isCollapsed ? "Expand sidebar to full width (256px)" : "Collapse sidebar to mini-sidebar (80px)"}
           >
             {isCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-          </button>
-
-          {/* Close for mobile */}
-          <button
-            type="button"
-            onClick={() => setMobileOpen(false)}
-            className="lg:hidden h-7 w-7 flex items-center justify-center text-slate-400 hover:text-white"
-          >
-            <X className="h-4 w-4" />
           </button>
         </div>
 
@@ -309,10 +288,7 @@ export function Sidebar({
           <div className="px-3 pt-3">
             <button
               type="button"
-              onClick={() => {
-                setMobileOpen(false);
-                onOpenSearch?.();
-              }}
+              onClick={() => onOpenSearch?.()}
               className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium rounded-xl text-slate-400 bg-slate-900/90 hover:bg-slate-800/90 border border-slate-800 transition-colors shadow-xs"
             >
               <span className="flex items-center gap-2">
@@ -344,7 +320,6 @@ export function Sidebar({
                     <Link
                       key={item.href}
                       href={item.href}
-                      onClick={() => setMobileOpen(false)}
                       title={isCollapsed ? item.title : undefined}
                       className={cn(
                         "group flex items-center rounded-xl text-xs font-semibold transition-all duration-150 cursor-pointer",

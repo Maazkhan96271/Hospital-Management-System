@@ -577,8 +577,8 @@ export default function AdminDashboardPage() {
             </div>
           ) : (
             <>
-              <div className="rounded-xl border border-slate-200/80 dark:border-slate-800 overflow-hidden">
-                <Table>
+              <div className="rounded-xl border border-slate-200/80 dark:border-slate-800 overflow-x-auto w-full scrollbar-thin">
+                <Table className="min-w-full">
                   <TableHeader className="bg-slate-50/70 dark:bg-slate-800/50">
                     {table.getHeaderGroups().map((headerGroup) => (
                       <TableRow key={headerGroup.id}>
