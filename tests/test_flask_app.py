@@ -598,6 +598,115 @@ def test_flask_modular_app_startup_and_admin_seeding():
         assert "Alice Patient" not in alice_doc_html
         print("✅ Admin Search bar accurately filters by Name, ID, Specialization, and Role.")
 
+        # ==============================================================================
+        # 21. Admin Departments Management (/admin/departments)
+        # ==============================================================================
+        # List departments
+        depts_res = admin_client.get("/admin/departments")
+        assert depts_res.status_code == 200
+        assert "Manage Departments" in depts_res.data.decode("utf-8")
+        assert "Cardiology" in depts_res.data.decode("utf-8")
+
+        # Create new department via /admin/departments/add
+        add_dept_res = admin_client.post(
+            "/admin/departments/add",
+            data={
+                "name": "Neurology",
+                "description": "Brain and nervous system disorders",
+            },
+            follow_redirects=True,
+        )
+        assert add_dept_res.status_code == 200
+        with app.app_context():
+            neuro = Department.query.filter_by(name="Neurology").first()
+            assert neuro is not None
+            assert neuro.description == "Brain and nervous system disorders"
+            neuro_id = neuro.id
+
+        # Edit department
+        edit_dept_res = admin_client.post(
+            f"/admin/departments/{neuro_id}/edit",
+            data={
+                "name": "Neurology & Neurosurgery",
+                "description": "Comprehensive brain and spinal care",
+            },
+            follow_redirects=True,
+        )
+        assert edit_dept_res.status_code == 200
+        with app.app_context():
+            updated_neuro = db.session.get(Department, neuro_id)
+            assert updated_neuro.name == "Neurology & Neurosurgery"
+
+        # Delete department
+        del_dept_res = admin_client.post(
+            f"/admin/departments/{neuro_id}/delete",
+            follow_redirects=True,
+        )
+        assert del_dept_res.status_code == 200
+        with app.app_context():
+            assert db.session.get(Department, neuro_id) is None
+        print("✅ Admin Departments view (List, Add, Edit, Delete) fully functional.")
+
+        # ==============================================================================
+        # 22. Admin Appointments Management (/admin/appointments)
+        # ==============================================================================
+        appts_view_res = admin_client.get("/admin/appointments")
+        assert appts_view_res.status_code == 200
+        appts_html = appts_view_res.data.decode("utf-8")
+        assert "All Appointments" in appts_html
+        assert "Dr. Alice Smith" in appts_html
+
+        # Filter by status: scheduled
+        scheduled_filter_res = admin_client.get("/admin/appointments?status=scheduled")
+        assert scheduled_filter_res.status_code == 200
+        assert "Scheduled" in scheduled_filter_res.data.decode("utf-8")
+
+        # Cancel appointment as admin
+        cancel_admin_res = admin_client.post(
+            f"/admin/appointments/{today_appt_id}/cancel",
+            follow_redirects=True,
+        )
+        assert cancel_admin_res.status_code == 200
+        with app.app_context():
+            cancelled_appt = db.session.get(Appointment, today_appt_id)
+            assert cancelled_appt.status == AppointmentStatus.CANCELLED
+        print("✅ Admin Appointments view with filtering and cancellation fully functional.")
+
+        # ==============================================================================
+        # 23. Public Directory (/directory) - Accessible without login
+        # ==============================================================================
+        anon_client = app.test_client()
+        dir_res = anon_client.get("/directory")
+        assert dir_res.status_code == 200
+        dir_html = dir_res.data.decode("utf-8")
+        assert "MediCare Public Directory" in dir_html
+        assert "Dr. Alice Smith" in dir_html
+        assert "Cardiology" in dir_html
+        assert "Login to Book" in dir_html  # Prompt for unauthenticated visitors
+
+        # Search directory by query
+        dir_search_res = anon_client.get("/directory?q=Cardiology")
+        assert dir_search_res.status_code == 200
+        assert "Dr. Alice Smith" in dir_search_res.data.decode("utf-8")
+
+        # Filter directory by department
+        dir_dept_res = anon_client.get(f"/directory?dept={cardio_id}")
+        assert dir_dept_res.status_code == 200
+        assert "Dr. Alice Smith" in dir_dept_res.data.decode("utf-8")
+        print("✅ Public Doctor & Department Directory (/directory) accessible without authentication.")
+
+        # ==============================================================================
+        # 24. Role-based protection: Patient blocked from /admin routes
+        # ==============================================================================
+        blocked_depts = patient_client.get("/admin/departments", follow_redirects=True)
+        assert blocked_depts.status_code == 200
+        assert "Access denied" in blocked_depts.data.decode("utf-8")
+
+        blocked_appts = patient_client.get("/admin/appointments", follow_redirects=True)
+        assert blocked_appts.status_code == 200
+        assert "Access denied" in blocked_appts.data.decode("utf-8")
+        print("✅ Protected admin routes strictly blocked for patient role.")
+
     finally:
         if os.path.exists(db_path):
             os.remove(db_path)

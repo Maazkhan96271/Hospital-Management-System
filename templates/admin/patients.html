@@ -5,21 +5,50 @@
 <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
     <div>
         <h2 class="mb-1"><i class="bi bi-people text-info"></i> Manage Patients</h2>
-        <p class="text-muted mb-0">Create, update, blacklist, or remove patient accounts and access permissions.</p>
+        <p class="text-muted mb-0">Search by name or ID, create, update, blacklist, or remove patient accounts.</p>
     </div>
     <div class="d-flex gap-2">
-        <a href="{{ url_for('admin_add_patient') }}" class="btn btn-info text-white shadow-sm">
+        <a href="{{ url_for('admin.admin_add_patient') }}" class="btn btn-info text-white shadow-sm">
             <i class="bi bi-person-plus-fill"></i> Add New Patient
         </a>
-        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary">
+        <a href="{{ url_for('admin.admin_dashboard') }}" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left"></i> Dashboard
         </a>
     </div>
 </div>
 
+<!-- Search Bar for Patients -->
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-body p-3">
+        <form method="GET" action="{{ url_for('admin.admin_patients') }}" class="row g-2 align-items-center">
+            <div class="col-md-9">
+                <div class="input-group">
+                    <span class="input-group-text bg-white"><i class="bi bi-search text-info"></i></span>
+                    <input type="text" name="q" class="form-control"
+                           value="{{ query or '' }}"
+                           placeholder="Search patients by name, patient ID (e.g. 1, 2), username, or email…">
+                </div>
+            </div>
+            <div class="col-md-3 d-flex gap-2">
+                <button type="submit" class="btn btn-info text-white flex-grow-1">
+                    <i class="bi bi-search"></i> Search Patients
+                </button>
+                {% if query %}
+                <a href="{{ url_for('admin.admin_patients') }}" class="btn btn-outline-secondary" title="Clear">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
 <div class="card shadow-sm border-0">
     <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-        <h5 class="mb-0 fw-semibold text-info"><i class="bi bi-person-lines-fill"></i> Registered Patients</h5>
+        <h5 class="mb-0 fw-semibold text-info">
+            <i class="bi bi-person-lines-fill"></i>
+            {% if query %}Results for "{{ query }}"{% else %}Registered Patients{% endif %}
+        </h5>
         <span class="badge bg-info-subtle text-info border border-info-subtle rounded-pill">
             {{ patients | length }} Patient{{ 's' if patients | length != 1 }}
         </span>
@@ -66,10 +95,10 @@
                     <td>{{ p.created_at.strftime('%Y-%m-%d') if p.created_at else '—' }}</td>
                     <td class="text-end pe-3">
                         <div class="btn-group btn-group-sm">
-                            <a href="{{ url_for('admin_edit_patient', patient_id=p.id) }}" class="btn btn-outline-info" title="Edit Patient Details">
+                            <a href="{{ url_for('admin.admin_edit_patient', patient_id=p.id) }}" class="btn btn-outline-info" title="Edit Patient Details">
                                 <i class="bi bi-pencil"></i> Edit
                             </a>
-                            <form action="{{ url_for('admin_toggle_active', user_id=p.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Toggle active/blacklist status for {{ p.full_name }}?');">
+                            <form action="{{ url_for('admin.admin_toggle_active', user_id=p.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Toggle active/blacklist status for {{ p.full_name }}?');">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 {% if p.is_active %}
                                     <button type="submit" class="btn btn-outline-danger" title="Blacklist Patient">
@@ -81,7 +110,7 @@
                                     </button>
                                 {% endif %}
                             </form>
-                            <form action="{{ url_for('admin_delete_patient', patient_id=p.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Permanently remove patient {{ p.full_name }} and all their appointments? This cannot be undone.');">
+                            <form action="{{ url_for('admin.admin_delete_patient', patient_id=p.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Permanently remove patient {{ p.full_name }} and all their appointments? This cannot be undone.');">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="btn btn-outline-dark" title="Delete Patient">
                                     <i class="bi bi-trash3"></i>
@@ -96,11 +125,17 @@
         {% else %}
         <div class="text-center py-5">
             <i class="bi bi-person-x display-3 text-muted"></i>
-            <h5 class="mt-3 text-muted">No patients registered in the system yet.</h5>
+            <h5 class="mt-3 text-muted">No patients found{% if query %} matching "{{ query }}"{% endif %}.</h5>
             <p class="text-muted small">Patients can register publicly or be created directly by administrators.</p>
-            <a href="{{ url_for('admin_add_patient') }}" class="btn btn-info text-white">
+            {% if query %}
+            <a href="{{ url_for('admin.admin_patients') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left"></i> View All Patients
+            </a>
+            {% else %}
+            <a href="{{ url_for('admin.admin_add_patient') }}" class="btn btn-info text-white">
                 <i class="bi bi-person-plus-fill"></i> Add First Patient
             </a>
+            {% endif %}
         </div>
         {% endif %}
     </div>

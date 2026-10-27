@@ -159,6 +159,13 @@ class DepartmentForm(FlaskForm):
     submit = SubmitField("Save Department")
 
 
+class EditDepartmentForm(FlaskForm):
+    """Admin form to update an existing Department."""
+    name = StringField("Department Name", validators=[DataRequired(), Length(max=100)])
+    description = TextAreaField("Description", validators=[Optional()])
+    submit = SubmitField("Update Department")
+
+
 class AvailabilityForm(FlaskForm):
     """Doctor 7-day availability schedule form."""
     mon_available = BooleanField("Monday")

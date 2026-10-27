@@ -70,22 +70,32 @@
                     {% elif current_user.role == 'admin' %}
                         {# Admin Navigation #}
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('admin_dashboard') }}">
+                            <a class="nav-link" href="{{ url_for('admin.admin_dashboard') }}">
                                 <i class="bi bi-speedometer2 me-1"></i> Admin Overview
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('admin_doctors') }}">
+                            <a class="nav-link" href="{{ url_for('admin.admin_doctors') }}">
                                 <i class="bi bi-heart-pulse me-1"></i> Doctors
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('admin_patients') }}">
+                            <a class="nav-link" href="{{ url_for('admin.admin_patients') }}">
                                 <i class="bi bi-people me-1"></i> Patients
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('admin_search') }}">
+                            <a class="nav-link" href="{{ url_for('admin.admin_appointments') }}">
+                                <i class="bi bi-calendar-check me-1"></i> Appointments
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('admin.admin_departments') }}">
+                                <i class="bi bi-building me-1"></i> Departments
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('admin.admin_search') }}">
                                 <i class="bi bi-search me-1"></i> Search Directory
                             </a>
                         </li>
@@ -109,6 +119,11 @@
 
                 {% else %}
                     {# ================= UNAUTHENTICATED NAVIGATION LINKS ================= #}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('main.public_directory') }}">
+                            <i class="bi bi-building me-1"></i> Doctor Directory
+                        </a>
+                    </li>
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('login') }}">
                             <i class="bi bi-person me-1"></i> Patient Login

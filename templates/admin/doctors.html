@@ -8,18 +8,47 @@
         <p class="text-muted mb-0">Add, update, blacklist, or remove doctor profiles and medical credentials.</p>
     </div>
     <div class="d-flex gap-2">
-        <a href="{{ url_for('admin_add_doctor') }}" class="btn btn-success shadow-sm">
+        <a href="{{ url_for('admin.admin_add_doctor') }}" class="btn btn-success shadow-sm">
             <i class="bi bi-person-plus"></i> Add New Doctor
         </a>
-        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary">
+        <a href="{{ url_for('admin.admin_dashboard') }}" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left"></i> Dashboard
         </a>
     </div>
 </div>
 
+<!-- Search Bar for Doctors -->
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-body p-3">
+        <form method="GET" action="{{ url_for('admin.admin_doctors') }}" class="row g-2 align-items-center">
+            <div class="col-md-9">
+                <div class="input-group">
+                    <span class="input-group-text bg-white"><i class="bi bi-search text-success"></i></span>
+                    <input type="text" name="q" class="form-control"
+                           value="{{ query or '' }}"
+                           placeholder="Search doctors by name, doctor ID (e.g. 1, 2), username, or email…">
+                </div>
+            </div>
+            <div class="col-md-3 d-flex gap-2">
+                <button type="submit" class="btn btn-success flex-grow-1">
+                    <i class="bi bi-search"></i> Search Doctors
+                </button>
+                {% if query %}
+                <a href="{{ url_for('admin.admin_doctors') }}" class="btn btn-outline-secondary" title="Clear">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
 <div class="card shadow-sm border-0">
     <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-        <h5 class="mb-0 fw-semibold text-success"><i class="bi bi-list-ul"></i> Doctor Roster</h5>
+        <h5 class="mb-0 fw-semibold text-success">
+            <i class="bi bi-list-ul"></i>
+            {% if query %}Results for "{{ query }}"{% else %}Doctor Roster{% endif %}
+        </h5>
         <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill">
             {{ doctors | length }} Doctor{{ 's' if doctors | length != 1 }}
         </span>
@@ -72,10 +101,10 @@
                     </td>
                     <td class="text-end pe-3">
                         <div class="btn-group btn-group-sm">
-                            <a href="{{ url_for('admin_edit_doctor', doctor_id=d.id) }}" class="btn btn-outline-primary" title="Edit Doctor Profile">
+                            <a href="{{ url_for('admin.admin_edit_doctor', doctor_id=d.id) }}" class="btn btn-outline-primary" title="Edit Doctor Profile">
                                 <i class="bi bi-pencil"></i> Edit
                             </a>
-                            <form action="{{ url_for('admin_toggle_active', user_id=d.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Toggle active/blacklist status for Dr. {{ d.full_name }}?');">
+                            <form action="{{ url_for('admin.admin_toggle_active', user_id=d.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Toggle active/blacklist status for Dr. {{ d.full_name }}?');">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 {% if d.is_active %}
                                     <button type="submit" class="btn btn-outline-danger" title="Blacklist Doctor">
@@ -87,7 +116,7 @@
                                     </button>
                                 {% endif %}
                             </form>
-                            <form action="{{ url_for('admin_delete_doctor', doctor_id=d.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Permanently remove Dr. {{ d.full_name }} and all their appointments? This cannot be undone.');">
+                            <form action="{{ url_for('admin.admin_delete_doctor', doctor_id=d.id) }}" method="POST" class="d-inline" onsubmit="return confirm('Permanently remove Dr. {{ d.full_name }} and all their appointments? This cannot be undone.');">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="btn btn-outline-dark" title="Delete Doctor">
                                     <i class="bi bi-trash3"></i>
@@ -102,11 +131,17 @@
         {% else %}
         <div class="text-center py-5">
             <i class="bi bi-person-x display-3 text-muted"></i>
-            <h5 class="mt-3 text-muted">No doctors found in the system.</h5>
+            <h5 class="mt-3 text-muted">No doctors found{% if query %} matching "{{ query }}"{% endif %}.</h5>
             <p class="text-muted small">Get started by creating the first doctor profile.</p>
-            <a href="{{ url_for('admin_add_doctor') }}" class="btn btn-success">
+            {% if query %}
+            <a href="{{ url_for('admin.admin_doctors') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left"></i> View All Doctors
+            </a>
+            {% else %}
+            <a href="{{ url_for('admin.admin_add_doctor') }}" class="btn btn-success">
                 <i class="bi bi-person-plus"></i> Add First Doctor
             </a>
+            {% endif %}
         </div>
         {% endif %}
     </div>

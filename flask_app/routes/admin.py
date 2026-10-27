@@ -1,4 +1,4 @@
-"""Admin portal routes: dashboard, doctor management, patient management, departments, and user search."""
+"""Admin portal routes: dashboard, doctor management, patient management, departments, appointments, and user search."""
 
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
@@ -12,6 +12,7 @@ from flask_app.models import (
     DoctorProfile,
     Appointment,
     AppointmentStatus,
+    Treatment,
 )
 from flask_app.decorators import admin_required
 from flask_app.forms import (
@@ -21,6 +22,7 @@ from flask_app.forms import (
     AddPatientForm,
     EditPatientForm,
     DepartmentForm,
+    EditDepartmentForm,
 )
 
 admin_bp = Blueprint("admin", __name__, url_prefix="/admin")
@@ -130,9 +132,22 @@ def admin_search():
 @login_required
 @admin_required
 def admin_doctors():
-    """List all doctors with their profiles, departments, and active statuses."""
-    doctors = User.query.filter_by(role=UserRole.DOCTOR).order_by(User.created_at.desc()).all()
-    return render_template("admin/doctors.html", doctors=doctors)
+    """List all doctors with optional search by name, ID, or specialisation."""
+    q = request.args.get("q", "").strip()
+    query = User.query.filter_by(role=UserRole.DOCTOR)
+    if q:
+        pattern = f"%{q}%"
+        conditions = [
+            User.first_name.ilike(pattern),
+            User.last_name.ilike(pattern),
+            User.username.ilike(pattern),
+            User.email.ilike(pattern),
+        ]
+        if q.isdigit():
+            conditions.append(User.id == int(q))
+        query = query.filter(or_(*conditions))
+    doctors = query.order_by(User.created_at.desc()).all()
+    return render_template("admin/doctors.html", doctors=doctors, query=q)
 
 
 @admin_bp.route("/doctors/add", methods=["GET", "POST"])
@@ -243,9 +258,23 @@ def admin_delete_doctor(doctor_id):
 @login_required
 @admin_required
 def admin_patients():
-    """List all registered patients with appointment stats and active statuses."""
-    patients = User.query.filter_by(role=UserRole.PATIENT).order_by(User.created_at.desc()).all()
-    return render_template("admin/patients.html", patients=patients)
+    """List all registered patients with search by name/ID, appointment stats and active statuses."""
+    q = request.args.get("q", "").strip()
+    query = User.query.filter_by(role=UserRole.PATIENT)
+    if q:
+        pattern = f"%{q}%"
+        conditions = [
+            User.first_name.ilike(pattern),
+            User.last_name.ilike(pattern),
+            User.username.ilike(pattern),
+            User.email.ilike(pattern),
+            User.phone.ilike(pattern),
+        ]
+        if q.isdigit():
+            conditions.append(User.id == int(q))
+        query = query.filter(or_(*conditions))
+    patients = query.order_by(User.created_at.desc()).all()
+    return render_template("admin/patients.html", patients=patients, query=q)
 
 
 @admin_bp.route("/patients/add", methods=["GET", "POST"])
@@ -362,5 +391,130 @@ def admin_add_department():
         db.session.add(dept)
         db.session.commit()
         flash(f"Department '{dept.name}' created.", "success")
-        return redirect(url_for("admin.admin_dashboard"))
+        return redirect(url_for("admin.admin_departments"))
     return render_template("admin/add_department.html", form=form)
+
+
+# ==============================================================================
+# DEPARTMENTS MANAGEMENT
+# ==============================================================================
+
+
+@admin_bp.route("/departments")
+@login_required
+@admin_required
+def admin_departments():
+    """List all medical departments with doctor counts and edit/delete controls."""
+    departments = Department.query.order_by(Department.name.asc()).all()
+    return render_template("admin/departments.html", departments=departments, form=DepartmentForm())
+
+
+@admin_bp.route("/departments/<int:dept_id>/edit", methods=["GET", "POST"])
+@login_required
+@admin_required
+def admin_edit_department(dept_id):
+    """Edit an existing medical department."""
+    dept = db.session.get(Department, dept_id)
+    if not dept:
+        flash("Department not found.", "danger")
+        return redirect(url_for("admin.admin_departments"))
+
+    form = EditDepartmentForm(obj=dept)
+    if form.validate_on_submit():
+        dept.name = form.name.data
+        dept.description = form.description.data
+        db.session.commit()
+        flash(f"Department '{dept.name}' updated.", "success")
+        return redirect(url_for("admin.admin_departments"))
+
+    return render_template("admin/edit_department.html", form=form, dept=dept)
+
+
+@admin_bp.route("/departments/<int:dept_id>/delete", methods=["POST"])
+@login_required
+@admin_required
+def admin_delete_department(dept_id):
+    """Delete a medical department (doctor profiles become unassigned)."""
+    dept = db.session.get(Department, dept_id)
+    if not dept:
+        flash("Department not found.", "danger")
+        return redirect(url_for("admin.admin_departments"))
+
+    # Unassign doctors instead of cascading delete
+    for profile in dept.doctors.all():
+        profile.department_id = None
+    name = dept.name
+    db.session.delete(dept)
+    db.session.commit()
+    flash(f"Department '{name}' removed. Doctors have been reassigned to General.", "success")
+    return redirect(url_for("admin.admin_departments"))
+
+
+# ==============================================================================
+# ALL APPOINTMENTS VIEW
+# ==============================================================================
+
+
+@admin_bp.route("/appointments")
+@login_required
+@admin_required
+def admin_appointments():
+    """Full paginated appointments list with filtering by status and date."""
+    status_filter = request.args.get("status", "all").strip().lower()
+    date_filter = request.args.get("date", "").strip()
+    page = request.args.get("page", 1, type=int)
+
+    query = Appointment.query
+
+    if status_filter != "all" and status_filter in [
+        AppointmentStatus.SCHEDULED,
+        AppointmentStatus.COMPLETED,
+        AppointmentStatus.CANCELLED,
+        AppointmentStatus.NO_SHOW,
+    ]:
+        query = query.filter_by(status=status_filter)
+
+    if date_filter:
+        from datetime import datetime as dt
+        try:
+            filter_date = dt.strptime(date_filter, "%Y-%m-%d").date()
+            query = query.filter(Appointment.appointment_date == filter_date)
+        except ValueError:
+            pass
+
+    appointments = (
+        query.order_by(Appointment.appointment_date.desc(), Appointment.appointment_time.desc())
+        .paginate(page=page, per_page=25, error_out=False)
+    )
+
+    total_all = Appointment.query.count()
+    total_scheduled = Appointment.query.filter_by(status=AppointmentStatus.SCHEDULED).count()
+    total_completed = Appointment.query.filter_by(status=AppointmentStatus.COMPLETED).count()
+    total_cancelled = Appointment.query.filter_by(status=AppointmentStatus.CANCELLED).count()
+
+    return render_template(
+        "admin/appointments.html",
+        appointments=appointments,
+        status_filter=status_filter,
+        date_filter=date_filter,
+        total_all=total_all,
+        total_scheduled=total_scheduled,
+        total_completed=total_completed,
+        total_cancelled=total_cancelled,
+    )
+
+
+@admin_bp.route("/appointments/<int:appointment_id>/cancel", methods=["POST"])
+@login_required
+@admin_required
+def admin_cancel_appointment(appointment_id):
+    """Admin cancels any appointment."""
+    appt = db.session.get(Appointment, appointment_id)
+    if not appt:
+        flash("Appointment not found.", "danger")
+        return redirect(url_for("admin.admin_appointments"))
+
+    appt.status = AppointmentStatus.CANCELLED
+    db.session.commit()
+    flash(f"Appointment #{appointment_id} has been cancelled.", "success")
+    return redirect(request.referrer or url_for("admin.admin_appointments"))

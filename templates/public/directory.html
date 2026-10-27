@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% block title %}Doctor & Department Directory – MediCare HMS{% endblock %}
+
+{% block content %}
+<!-- Hero Banner -->
+<div class="py-4 mb-4 rounded-3 bg-primary text-white px-4 px-md-5 shadow-sm">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+        <div>
+            <h1 class="fw-bold mb-1"><i class="bi bi-hospital me-2"></i>MediCare Public Directory</h1>
+            <p class="mb-0 opacity-75 fs-5">Find our specialist doctors and medical departments. No account required.</p>
+        </div>
+        {% if not current_user.is_authenticated %}
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('auth.login') }}" class="btn btn-light text-primary fw-semibold">
+                <i class="bi bi-person me-1"></i> Patient Login
+            </a>
+            <a href="{{ url_for('auth.register') }}" class="btn btn-outline-light">
+                <i class="bi bi-person-plus me-1"></i> Register
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Search & Filter Bar -->
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-body p-3">
+        <form method="GET" action="{{ url_for('main.public_directory') }}" class="row g-2 align-items-center">
+            <div class="col-md-6">
+                <div class="input-group">
+                    <span class="input-group-text bg-white"><i class="bi bi-search text-primary"></i></span>
+                    <input type="text" name="q" class="form-control form-control-lg"
+                           value="{{ query }}"
+                           placeholder="Search doctor by name or specialisation…">
+                </div>
+            </div>
+            <div class="col-md-4">
+                <select name="dept" class="form-select form-select-lg">
+                    <option value="">All Departments</option>
+                    {% for dept in departments %}
+                    <option value="{{ dept.id }}" {% if dept_id == dept.id | string %}selected{% endif %}>{{ dept.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2 d-flex gap-2">
+                <button type="submit" class="btn btn-primary btn-lg flex-grow-1">
+                    <i class="bi bi-search"></i> Search
+                </button>
+                {% if query or dept_id %}
+                <a href="{{ url_for('main.public_directory') }}" class="btn btn-outline-secondary btn-lg" title="Clear">
+                    <i class="bi bi-x-lg"></i>
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Department Overview -->
+{% if not query and not dept_id %}
+<div class="mb-5">
+    <h4 class="fw-semibold mb-3"><i class="bi bi-building text-primary me-2"></i>Our Medical Departments</h4>
+    <div class="row g-3">
+        {% for dept in departments %}
+        <div class="col-sm-6 col-lg-4">
+            <a href="{{ url_for('main.public_directory', dept=dept.id) }}" class="text-decoration-none">
+                <div class="card border-0 shadow-sm h-100 hover-lift">
+                    <div class="card-body d-flex align-items-start gap-3">
+                        <div class="rounded-circle bg-primary-subtle d-flex align-items-center justify-content-center flex-shrink-0" style="width:48px;height:48px;">
+                            <i class="bi bi-building text-primary fs-5"></i>
+                        </div>
+                        <div>
+                            <h6 class="fw-bold text-dark mb-1">{{ dept.name }}</h6>
+                            <p class="text-muted small mb-2">{{ dept.description or 'Specialised healthcare services.' }}</p>
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+                                {{ dept.doctors.count() }} Doctor{{ 's' if dept.doctors.count() != 1 }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        {% else %}
+        <div class="col-12 text-center text-muted py-4">
+            <i class="bi bi-building-x display-4"></i>
+            <p class="mt-2">No departments have been configured yet.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Doctor Listings -->
+<div>
+    <h4 class="fw-semibold mb-3">
+        <i class="bi bi-person-badge text-success me-2"></i>
+        {% if query %}Results for "{{ query }}"{% elif dept_id %}Doctors in {{ departments | selectattr('id', 'equalto', dept_id | int) | map(attribute='name') | first }}{% else %}All Specialist Doctors{% endif %}
+        <span class="badge bg-light text-dark border ms-2 fs-6">{{ doctors | length }}</span>
+    </h4>
+
+    {% if doctors %}
+    <div class="row g-3">
+        {% for doc in doctors %}
+        <div class="col-md-6 col-xl-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-center gap-3 mb-3">
+                        <div class="rounded-circle bg-success-subtle d-flex align-items-center justify-content-center flex-shrink-0" style="width:52px;height:52px;">
+                            <i class="bi bi-person-badge text-success fs-4"></i>
+                        </div>
+                        <div>
+                            <h6 class="fw-bold mb-0">Dr. {{ doc.user.full_name }}</h6>
+                            <small class="text-muted">{{ doc.specialisation or 'General Medicine' }}</small>
+                        </div>
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        {% if doc.department %}
+                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle">
+                            <i class="bi bi-building me-1"></i>{{ doc.department.name }}
+                        </span>
+                        {% endif %}
+                        {% if doc.experience_years %}
+                        <span class="badge bg-light text-dark border">
+                            <i class="bi bi-clock-history me-1"></i>{{ doc.experience_years }} yrs exp.
+                        </span>
+                        {% endif %}
+                    </div>
+
+                    {% if doc.qualification %}
+                    <p class="text-muted small mb-3">
+                        <i class="bi bi-mortarboard me-1"></i>{{ doc.qualification }}
+                    </p>
+                    {% endif %}
+
+                    <!-- Availability summary -->
+                    {% set sched = doc.parsed_availability %}
+                    <div class="mb-3">
+                        <small class="fw-semibold text-secondary d-block mb-1">Weekly Availability</small>
+                        <div class="d-flex flex-wrap gap-1">
+                            {% for day, info in sched.items() %}
+                            <span class="badge {{ 'bg-success' if info.available else 'bg-light text-muted border' }}" style="font-size:0.7rem;">
+                                {{ day[:3] | title }}
+                            </span>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    {% if current_user.is_authenticated and current_user.role == 'patient' %}
+                    <a href="{{ url_for('patient.patient_book_appointment', doctor_id=doc.id) }}" class="btn btn-sm btn-success w-100">
+                        <i class="bi bi-calendar-plus"></i> Book Appointment
+                    </a>
+                    {% elif not current_user.is_authenticated %}
+                    <a href="{{ url_for('auth.login') }}" class="btn btn-sm btn-outline-primary w-100">
+                        <i class="bi bi-box-arrow-in-right"></i> Login to Book
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+        <i class="bi bi-person-x display-3 text-muted"></i>
+        <h5 class="mt-3 text-muted">No doctors found</h5>
+        <p class="text-muted small">Try a different name or browse another department.</p>
+        <a href="{{ url_for('main.public_directory') }}" class="btn btn-outline-primary mt-2">
+            <i class="bi bi-arrow-left me-1"></i> View All Doctors
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+    .hover-lift { transition: transform .15s ease, box-shadow .15s ease; }
+    .hover-lift:hover { transform: translateY(-3px); box-shadow: 0 .5rem 1rem rgba(0,0,0,.12) !important; }
+</style>
+{% endblock %}
