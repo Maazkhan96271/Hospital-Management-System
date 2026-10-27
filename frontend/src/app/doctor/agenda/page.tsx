@@ -635,53 +635,64 @@ export default function DoctorAgendaPage() {
 
       {/* Metrics Banner */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <Card className="border-slate-200/80 dark:border-slate-800 bg-white/70 dark:bg-slate-900/70 shadow-xs">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Total Consultations</p>
-              <p className="text-2xl font-black text-slate-900 dark:text-white mt-0.5">{appointments.length}</p>
-            </div>
-            <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
-              <Calendar className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
+        {loading ? (
+          <>
+            <Skeleton className="h-24 rounded-2xl" />
+            <Skeleton className="h-24 rounded-2xl" />
+            <Skeleton className="h-24 rounded-2xl" />
+            <Skeleton className="h-24 rounded-2xl" />
+          </>
+        ) : (
+          <>
+            <Card className="border-slate-200/80 dark:border-slate-800 bg-white/70 dark:bg-slate-900/70 shadow-xs">
+              <CardContent className="p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Total Consultations</p>
+                  <p className="text-2xl font-black text-slate-900 dark:text-white mt-0.5">{appointments.length}</p>
+                </div>
+                <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                  <Calendar className="h-5 w-5" />
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card className="border-amber-200/80 dark:border-amber-900/40 bg-amber-50/30 dark:bg-amber-950/20 shadow-xs">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-medium text-amber-700 dark:text-amber-300">Awaiting Consultation</p>
-              <p className="text-2xl font-black text-amber-900 dark:text-amber-100 mt-0.5">{waitingAppointments.length}</p>
-            </div>
-            <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400">
-              <Clock className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
+            <Card className="border-amber-200/80 dark:border-amber-900/40 bg-amber-50/30 dark:bg-amber-950/20 shadow-xs">
+              <CardContent className="p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-amber-700 dark:text-amber-300">Awaiting Consultation</p>
+                  <p className="text-2xl font-black text-amber-900 dark:text-amber-100 mt-0.5">{waitingAppointments.length}</p>
+                </div>
+                <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400">
+                  <Clock className="h-5 w-5" />
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card className="border-purple-200/80 dark:border-purple-900/40 bg-purple-50/30 dark:bg-purple-950/20 shadow-xs">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-medium text-purple-700 dark:text-purple-300">In Active Exam</p>
-              <p className="text-2xl font-black text-purple-900 dark:text-purple-100 mt-0.5">{inProgressAppointments.length}</p>
-            </div>
-            <div className="p-2.5 rounded-xl bg-purple-500/20 text-purple-600 dark:text-purple-400">
-              <Activity className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
+            <Card className="border-purple-200/80 dark:border-purple-900/40 bg-purple-50/30 dark:bg-purple-950/20 shadow-xs">
+              <CardContent className="p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-purple-700 dark:text-purple-300">In Active Exam</p>
+                  <p className="text-2xl font-black text-purple-900 dark:text-purple-100 mt-0.5">{inProgressAppointments.length}</p>
+                </div>
+                <div className="p-2.5 rounded-xl bg-purple-500/20 text-purple-600 dark:text-purple-400">
+                  <Activity className="h-5 w-5" />
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card className="border-emerald-200/80 dark:border-emerald-900/40 bg-emerald-50/30 dark:bg-emerald-950/20 shadow-xs">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-medium text-emerald-700 dark:text-emerald-300">Completed & Billed</p>
-              <p className="text-2xl font-black text-emerald-900 dark:text-emerald-100 mt-0.5">{completedAppointments.length}</p>
-            </div>
-            <div className="p-2.5 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
-              <CheckCircle2 className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
+            <Card className="border-emerald-200/80 dark:border-emerald-900/40 bg-emerald-50/30 dark:bg-emerald-950/20 shadow-xs">
+              <CardContent className="p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-medium text-emerald-700 dark:text-emerald-300">Completed & Billed</p>
+                  <p className="text-2xl font-black text-emerald-900 dark:text-emerald-100 mt-0.5">{completedAppointments.length}</p>
+                </div>
+                <div className="p-2.5 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
+                  <CheckCircle2 className="h-5 w-5" />
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
 
       {/* Main Agenda Section (Kanban vs List) */}

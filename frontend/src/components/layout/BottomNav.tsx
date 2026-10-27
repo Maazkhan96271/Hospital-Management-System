@@ -91,10 +91,10 @@ export function BottomNav({ onOpenSearch }: BottomNavProps) {
 
   return (
     <>
-      {/* Fixed Bottom Navigation Bar on Mobile (screens < 768px, like Apollo 24/7) */}
+      {/* Fixed Bottom Navigation Bar on Mobile (screens < 768px, like Apollo 24/7) with subtle blur */}
       <nav
         aria-label="Mobile Navigation"
-        className="md:hidden fixed bottom-0 left-0 right-0 z-40 h-16 bg-white/95 dark:bg-[#0b132b]/95 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] px-2 flex items-center justify-around safe-area-inset-bottom"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 h-16 bg-white/80 dark:bg-[#0b132b]/80 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800/80 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] px-2 flex items-center justify-around safe-area-inset-bottom"
       >
         {/* Tab 1: Home */}
         <Link

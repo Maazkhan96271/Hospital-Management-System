@@ -206,8 +206,8 @@ export function Sidebar({
 
   return (
     <>
-      {/* Mobile Top Header (screens < 768px) */}
-      <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-[#0b132b] text-white border-b border-slate-800 z-40 px-4 flex items-center justify-between shadow-md">
+      {/* Mobile Top Header (screens < 768px) with subtle blur */}
+      <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-[#0b132b]/80 backdrop-blur-md text-white border-b border-slate-800/80 z-40 px-4 flex items-center justify-between shadow-md">
         <Link href="/" className="flex items-center gap-2.5">
           <div className="h-9 w-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/30">
             <HeartPulse className="h-5 w-5" />

@@ -480,75 +480,86 @@ export default function LabPortalPage() {
 
       {/* KPI Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="border-amber-200/80 dark:border-amber-900/40 bg-amber-50/30 dark:bg-amber-950/20 shadow-xs">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-400">
-                Pending Investigations
-              </p>
-              <h3 className="text-2xl font-black text-amber-950 dark:text-amber-200 mt-1">
-                {pendingOrders.length} orders
-              </h3>
-              <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium mt-0.5">
-                Specimen collected, awaiting results
-              </p>
-            </div>
-            <div className="h-11 w-11 rounded-xl bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 flex items-center justify-center">
-              <Microscope className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
+        {loading ? (
+          <>
+            <Skeleton className="h-28 rounded-2xl" />
+            <Skeleton className="h-28 rounded-2xl" />
+            <Skeleton className="h-28 rounded-2xl" />
+            <Skeleton className="h-28 rounded-2xl" />
+          </>
+        ) : (
+          <>
+            <Card className="border-amber-200/80 dark:border-amber-900/40 bg-amber-50/30 dark:bg-amber-950/20 shadow-xs">
+              <CardContent className="p-5 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-400">
+                    Pending Investigations
+                  </p>
+                  <h3 className="text-2xl font-black text-amber-950 dark:text-amber-200 mt-1">
+                    {pendingOrders.length} orders
+                  </h3>
+                  <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium mt-0.5">
+                    Specimen collected, awaiting results
+                  </p>
+                </div>
+                <div className="h-11 w-11 rounded-xl bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300 flex items-center justify-center">
+                  <Microscope className="h-5 w-5" />
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card className="border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Completed Reports</p>
-              <h3 className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
-                {completedOrders.length} tests
-              </h3>
-              <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium mt-0.5">
-                Published & attached to EMR
-              </p>
-            </div>
-            <div className="h-11 w-11 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center">
-              <CheckCircle2 className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
+            <Card className="border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
+              <CardContent className="p-5 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Completed Reports</p>
+                  <h3 className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
+                    {completedOrders.length} tests
+                  </h3>
+                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium mt-0.5">
+                    Published & attached to EMR
+                  </p>
+                </div>
+                <div className="h-11 w-11 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 flex items-center justify-center">
+                  <CheckCircle2 className="h-5 w-5" />
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card className="border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Diagnostic Tests</p>
-              <h3 className="text-2xl font-black text-slate-900 dark:text-white mt-1">
-                8 Panels
-              </h3>
-              <p className="text-[11px] text-slate-500 font-medium mt-0.5">
-                Active lab catalog directory
-              </p>
-            </div>
-            <div className="h-11 w-11 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 flex items-center justify-center">
-              <Activity className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
+            <Card className="border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
+              <CardContent className="p-5 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Diagnostic Tests</p>
+                  <h3 className="text-2xl font-black text-slate-900 dark:text-white mt-1">
+                    8 Panels
+                  </h3>
+                  <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                    Active lab catalog directory
+                  </p>
+                </div>
+                <div className="h-11 w-11 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 flex items-center justify-center">
+                  <Activity className="h-5 w-5" />
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card className="border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
-          <CardContent className="p-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Avg Turnaround Time</p>
-              <h3 className="text-2xl font-black text-slate-900 dark:text-white mt-1">
-                45 mins
-              </h3>
-              <p className="text-[11px] text-emerald-600 font-medium mt-0.5">
-                98.4% on-time TAT SLA
-              </p>
-            </div>
-            <div className="h-11 w-11 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 flex items-center justify-center">
-              <Clock className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
+            <Card className="border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
+              <CardContent className="p-5 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Avg Turnaround Time</p>
+                  <h3 className="text-2xl font-black text-slate-900 dark:text-white mt-1">
+                    45 mins
+                  </h3>
+                  <p className="text-[11px] text-emerald-600 font-medium mt-0.5">
+                    98.4% on-time TAT SLA
+                  </p>
+                </div>
+                <div className="h-11 w-11 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 flex items-center justify-center">
+                  <Clock className="h-5 w-5" />
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
 
       {/* Filter Tabs and DataTable */}

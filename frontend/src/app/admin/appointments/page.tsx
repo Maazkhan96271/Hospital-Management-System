@@ -7,6 +7,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { DataTable, Column } from "@/components/ui/data-table";
 import {
   Sheet,
@@ -46,6 +47,15 @@ interface Appointment {
   status: "Booked" | "Waiting" | "In-Progress" | "Completed" | "Cancelled";
   notes?: string;
   created_at: string;
+  doctor?: {
+    id: number;
+    specialization?: string;
+    user?: {
+      first_name: string;
+      last_name: string;
+      email?: string;
+    };
+  } | null;
   patient?: {
     id: number;
     first_name: string;
@@ -195,12 +205,22 @@ export default function AdminAppointmentsPage() {
         const name = row.patient
           ? `${row.patient.first_name} ${row.patient.last_name}`
           : `Patient #${row.patient_id}`;
+        const initials = row.patient
+          ? `${row.patient.first_name?.[0] || ""}${row.patient.last_name?.[0] || ""}`.toUpperCase()
+          : "PT";
         return (
-          <div>
-            <span className="font-bold text-xs text-blue-600 dark:text-blue-400 hover:underline cursor-pointer">
-              {name}
-            </span>
-            <span className="block text-[11px] text-slate-400">ID: #{row.patient_id}</span>
+          <div className="flex items-center gap-2.5">
+            <Avatar className="h-8 w-8 border border-blue-500/20 bg-blue-50 dark:bg-blue-950/50">
+              <AvatarFallback className="text-blue-700 dark:text-blue-300 font-bold text-xs">
+                {initials || "PT"}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <span className="font-bold text-xs text-blue-600 dark:text-blue-400 hover:underline cursor-pointer">
+                {name}
+              </span>
+              <span className="block text-[11px] text-slate-400">ID: #{row.patient_id}</span>
+            </div>
           </div>
         );
       },
@@ -209,12 +229,22 @@ export default function AdminAppointmentsPage() {
       header: "Attending Doctor",
       accessorKey: "doctor_id",
       sortable: true,
-      cell: (row) => (
-        <span className="flex items-center gap-1.5 font-medium text-slate-700 dark:text-slate-300">
-          <Stethoscope className="h-3.5 w-3.5 text-blue-500" />
-          Dr. #{row.doctor_id}
-        </span>
-      ),
+      cell: (row) => {
+        const docName = row.doctor ? `Dr. ${row.doctor.user?.first_name || ""} ${row.doctor.user?.last_name || ""}`.trim() : `Dr. #${row.doctor_id}`;
+        const docInitials = row.doctor?.user ? `${row.doctor.user.first_name?.[0] || ""}${row.doctor.user.last_name?.[0] || ""}`.toUpperCase() : "DR";
+        return (
+          <div className="flex items-center gap-2">
+            <Avatar className="h-7 w-7 border border-emerald-500/20 bg-emerald-50 dark:bg-emerald-950/50">
+              <AvatarFallback className="text-emerald-700 dark:text-emerald-300 font-bold text-[10px]">
+                {docInitials || "DR"}
+              </AvatarFallback>
+            </Avatar>
+            <span className="font-medium text-slate-700 dark:text-slate-300 text-xs">
+              {docName}
+            </span>
+          </div>
+        );
+      },
     },
     {
       header: "Date & Time",

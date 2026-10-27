@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { cn } from "@/lib/utils";
 import {
   CalendarPlus,
   CalendarCheck,
@@ -27,6 +29,10 @@ import {
   FlaskConical,
   Microscope,
   Download,
+  Sparkles,
+  Activity,
+  Star,
+  Check,
 } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch, ApiError } from "@/lib/api";
@@ -88,6 +94,9 @@ interface Doctor {
   experience: string;
   avatar_bg: string;
   availableDays: string[];
+  symptoms: string[];
+  rating: number;
+  consultation_fee: number;
 }
 
 export default function PatientDashboardPage() {
@@ -119,6 +128,9 @@ export default function PatientDashboardPage() {
       experience: "12 yrs experience",
       avatar_bg: "from-blue-600 to-indigo-600",
       availableDays: ["Mon", "Tue", "Wed", "Thu", "Fri"],
+      symptoms: ["chest pain", "heart", "bp", "blood pressure", "hypertension", "palpitations", "shortness of breath", "cardiac"],
+      rating: 4.9,
+      consultation_fee: 500,
     },
     {
       id: 2,
@@ -129,6 +141,9 @@ export default function PatientDashboardPage() {
       experience: "15 yrs experience",
       avatar_bg: "from-purple-600 to-pink-600",
       availableDays: ["Mon", "Wed", "Fri"],
+      symptoms: ["headache", "migraine", "dizziness", "nerve pain", "seizures", "brain", "stroke", "vertigo"],
+      rating: 4.85,
+      consultation_fee: 650,
     },
     {
       id: 3,
@@ -139,6 +154,9 @@ export default function PatientDashboardPage() {
       experience: "10 yrs experience",
       avatar_bg: "from-emerald-600 to-teal-600",
       availableDays: ["Tue", "Thu", "Sat"],
+      symptoms: ["joint pain", "knee pain", "fracture", "arthritis", "back pain", "bone", "spine", "shoulder"],
+      rating: 4.92,
+      consultation_fee: 550,
     },
     {
       id: 4,
@@ -149,6 +167,9 @@ export default function PatientDashboardPage() {
       experience: "8 yrs experience",
       avatar_bg: "from-amber-500 to-orange-600",
       availableDays: ["Mon", "Tue", "Wed", "Thu", "Fri"],
+      symptoms: ["fever", "cold", "cough", "child care", "baby", "infant", "vaccination", "pediatric", "flu"],
+      rating: 4.95,
+      consultation_fee: 450,
     },
   ];
 
@@ -259,9 +280,14 @@ export default function PatientDashboardPage() {
   };
 
   const filteredDoctors = doctors.filter((doc) => {
+    const term = searchTerm.toLowerCase().trim();
     const matchesSearch =
-      doc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      doc.specialty.toLowerCase().includes(searchTerm.toLowerCase());
+      !term ||
+      doc.name.toLowerCase().includes(term) ||
+      doc.specialty.toLowerCase().includes(term) ||
+      doc.department.toLowerCase().includes(term) ||
+      doc.qualification.toLowerCase().includes(term) ||
+      doc.symptoms.some((s) => s.toLowerCase().includes(term));
     const matchesSpecialty =
       selectedSpecialty === "All" || doc.specialty === selectedSpecialty;
     return matchesSearch && matchesSpecialty;
@@ -269,65 +295,165 @@ export default function PatientDashboardPage() {
 
   return (
     <div className="space-y-8">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-              Patient Portal & Appointments
-            </h1>
-            <Badge variant="patient">Registered Patient</Badge>
+      {/* APOLLO-STYLE HERO BANNER WITH QUICK SEARCH & POPULAR SYMPTOM PILLS */}
+      {loading ? (
+        <div className="rounded-3xl border-0 p-8 bg-gradient-to-r from-blue-700 via-indigo-700 to-sky-600 text-white relative overflow-hidden shadow-xl animate-pulse space-y-4">
+          <Skeleton className="h-6 w-44 bg-white/20 rounded-full" />
+          <Skeleton className="h-10 w-2/3 bg-white/20 rounded-xl" />
+          <Skeleton className="h-5 w-4/5 bg-white/20 rounded-lg" />
+          <Skeleton className="h-14 w-full bg-white/30 rounded-2xl mt-4" />
+          <div className="flex gap-2 pt-2">
+            <Skeleton className="h-7 w-20 bg-white/20 rounded-full" />
+            <Skeleton className="h-7 w-24 bg-white/20 rounded-full" />
+            <Skeleton className="h-7 w-24 bg-white/20 rounded-full" />
+            <Skeleton className="h-7 w-28 bg-white/20 rounded-full" />
           </div>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Browse specialists by department and book available 30-minute consultation blocks.
-          </p>
         </div>
+      ) : (
+        <div className="relative rounded-3xl overflow-hidden bg-gradient-to-r from-blue-700 via-indigo-700 to-sky-600 dark:from-blue-950 dark:via-indigo-950 dark:to-slate-900 text-white p-6 sm:p-8 lg:p-10 shadow-xl border border-blue-500/20">
+          {/* Subtle Ambient Glow Spheres */}
+          <div className="absolute -right-16 -top-16 w-64 h-64 bg-cyan-400/20 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute right-1/3 -bottom-20 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl pointer-events-none" />
 
-        <Button
-          onClick={() => setBookingDoctor(doctors[0])}
-          className="gap-2 font-bold shadow-md bg-blue-600 hover:bg-blue-700 self-start sm:self-auto"
-        >
-          <CalendarPlus className="h-4 w-4" />
-          Quick Book Appointment
-        </Button>
-      </div>
+          <div className="relative z-10 max-w-3xl space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge className="bg-white/20 hover:bg-white/30 text-white border border-white/30 backdrop-blur-md text-[11px] font-semibold gap-1.5 px-3 py-1">
+                <Sparkles className="h-3.5 w-3.5 text-cyan-300" />
+                Apollo 24/7 Digital Health • Instant Care
+              </Badge>
+              <Badge variant="patient" className="bg-emerald-500 text-white border-0 text-[10px] font-bold">
+                Registered Patient
+              </Badge>
+            </div>
+
+            <div className="space-y-1.5">
+              <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white leading-tight">
+                Your Health, Our Priority
+              </h1>
+              <p className="text-xs sm:text-sm text-blue-100 max-w-2xl leading-relaxed">
+                Connect with world-class specialists, schedule instant 30-minute consultation blocks, or access verified diagnostic analyzer reports anytime, anywhere.
+              </p>
+            </div>
+
+            {/* Apollo-Style Quick Search Bar */}
+            <div className="pt-2">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-1.5 sm:p-2 bg-white/95 dark:bg-slate-900/95 rounded-2xl shadow-2xl border border-white/20 backdrop-blur-md transition-all focus-within:ring-2 focus-within:ring-cyan-400">
+                <div className="flex items-center flex-1 px-3 py-1 gap-2.5">
+                  <Search className="h-5 w-5 text-blue-600 dark:text-cyan-400 shrink-0" />
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Search for doctors, specialties, or symptoms..."
+                    className="w-full bg-transparent text-sm sm:text-base font-medium text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none"
+                  />
+                  {searchTerm && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchTerm("")}
+                      className="text-xs text-slate-400 hover:text-slate-600 p-1"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    const el = document.getElementById("doctor-directory");
+                    if (el) el.scrollIntoView({ behavior: "smooth" });
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 py-2.5 rounded-xl shadow-md text-xs sm:text-sm shrink-0"
+                >
+                  Find Doctors
+                </Button>
+              </div>
+
+              {/* Popular Symptom & Specialty Tags */}
+              <div className="pt-3 flex flex-wrap items-center gap-1.5 text-xs">
+                <span className="text-[11px] font-semibold text-blue-200">
+                  Popular Searches:
+                </span>
+                {[
+                  { label: "Cardiology", query: "Cardiology" },
+                  { label: "Neurology", query: "Neurology" },
+                  { label: "Orthopedics", query: "Orthopedics" },
+                  { label: "Pediatrics", query: "Pediatrics" },
+                  { label: "Fever & Cold", query: "fever" },
+                  { label: "Chest Pain", query: "chest pain" },
+                  { label: "Joint Pain", query: "joint pain" },
+                  { label: "Headache", query: "headache" },
+                ].map((tag) => (
+                  <button
+                    key={tag.label}
+                    type="button"
+                    onClick={() => {
+                      setSearchTerm(tag.query);
+                      const el = document.getElementById("doctor-directory");
+                      if (el) el.scrollIntoView({ behavior: "smooth" });
+                    }}
+                    className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-white/15 hover:bg-white/25 text-white backdrop-blur-xs border border-white/20 transition-all cursor-pointer"
+                  >
+                    {tag.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Active Upcoming Appointment Banner */}
-      <Card className="border-blue-200/90 dark:border-blue-900/40 bg-gradient-to-r from-blue-50/70 via-white to-indigo-50/60 dark:from-slate-900 dark:to-slate-900/60 shadow-xs">
-        <CardContent className="p-6">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex items-start gap-4">
-              <div className="h-12 w-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-blue-500/20">
-                <HeartPulse className="h-6 w-6" />
-              </div>
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-bold text-base text-slate-900 dark:text-white">
-                    Next Consultation: Dr. Alice Smith
-                  </h3>
-                  <Badge variant="default" className="text-[10px]">Confirmed</Badge>
-                </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Monday at 09:30 AM • Cardiovascular Medicine • 30-minute consultation
-                </p>
-              </div>
+      {loading ? (
+        <Card className="p-6">
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-12 w-12 rounded-2xl" />
+            <div className="space-y-2 flex-1">
+              <Skeleton className="h-4 w-48" />
+              <Skeleton className="h-3 w-64" />
             </div>
-
-            <div className="flex items-center gap-2">
-              <Button asChild size="sm" variant="outline" className="text-xs font-semibold">
-                <Link href="/patient/records">View Past Notes</Link>
-              </Button>
-              <Button
-                size="sm"
-                className="text-xs font-semibold bg-blue-600 hover:bg-blue-700"
-                onClick={() => setBookingDoctor(doctors[0])}
-              >
-                Reschedule Slot
-              </Button>
-            </div>
+            <Skeleton className="h-8 w-28 rounded-xl" />
           </div>
-        </CardContent>
-      </Card>
+        </Card>
+      ) : (
+        <Card className="border-blue-200/90 dark:border-blue-900/40 bg-gradient-to-r from-blue-50/70 via-white to-indigo-50/60 dark:from-slate-900 dark:to-slate-900/60 shadow-xs hover:-translate-y-1 hover:shadow-lg transition-all">
+          <CardContent className="p-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-start gap-4">
+                <Avatar className="h-12 w-12 border-2 border-blue-500/30 shadow-md">
+                  <AvatarFallback className="bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-bold text-sm">
+                    AS
+                  </AvatarFallback>
+                </Avatar>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                      Next Consultation: Dr. Alice Smith
+                    </h3>
+                    <Badge variant="default" className="text-[10px]">Confirmed</Badge>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Monday at 09:30 AM • Cardiovascular Medicine • 30-minute consultation
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button asChild size="sm" variant="outline" className="text-xs font-semibold">
+                  <Link href="/patient/records">View Past Notes</Link>
+                </Button>
+                <Button
+                  size="sm"
+                  className="text-xs font-semibold bg-blue-600 hover:bg-blue-700"
+                  onClick={() => setBookingDoctor(doctors[0])}
+                >
+                  Reschedule Slot
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* DIAGNOSTIC LABORATORY REPORTS & INVESTIGATION FINDINGS */}
       <Card className="border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
@@ -369,10 +495,11 @@ export default function PatientDashboardPage() {
         </CardHeader>
 
         <CardContent className="p-5">
-          {loadingLabs ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Skeleton className="h-28 rounded-xl" />
-              <Skeleton className="h-28 rounded-xl" />
+          {loading || loadingLabs ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <Skeleton className="h-36 rounded-xl" />
+              <Skeleton className="h-36 rounded-xl" />
+              <Skeleton className="h-36 rounded-xl" />
             </div>
           ) : labReports.length === 0 ? (
             <div className="p-6 text-center text-xs text-slate-400 border border-dashed rounded-xl">
@@ -509,16 +636,16 @@ export default function PatientDashboardPage() {
             {filteredDoctors.map((doc) => (
               <Card
                 key={doc.id}
-                className="border-slate-200/90 dark:border-slate-800 hover:shadow-md hover:border-blue-300 transition-all group"
+                className="border-slate-200/90 dark:border-slate-800 hover:-translate-y-1 hover:shadow-lg hover:border-blue-300 dark:hover:border-blue-700 transition-all group"
               >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <div
-                        className={`h-12 w-12 rounded-2xl bg-gradient-to-tr ${doc.avatar_bg} text-white flex items-center justify-center font-bold text-sm shadow-md`}
-                      >
-                        {doc.name.split(" ")[1]?.[0] || "D"}
-                      </div>
+                      <Avatar className="h-14 w-14 border-2 border-white dark:border-slate-800 shadow-md">
+                        <AvatarFallback className={cn("bg-gradient-to-tr text-white font-bold text-sm shadow-inner", doc.avatar_bg)}>
+                          {doc.name.split(" ").slice(1).map((n) => n[0]).join("") || "DR"}
+                        </AvatarFallback>
+                      </Avatar>
                       <div>
                         <CardTitle className="text-base group-hover:text-blue-600 transition-colors">
                           {doc.name}
@@ -526,6 +653,11 @@ export default function PatientDashboardPage() {
                         <p className="text-xs font-semibold text-blue-600 dark:text-blue-400">
                           {doc.specialty}
                         </p>
+                        <div className="flex items-center gap-1.5 mt-1 text-[11px] text-amber-500 font-semibold">
+                          <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                          <span>{doc.rating}</span>
+                          <span className="text-slate-400 font-normal">• Fee: ${doc.consultation_fee}</span>
+                        </div>
                       </div>
                     </div>
                     <Badge variant="secondary" className="text-[10px]">
@@ -544,6 +676,19 @@ export default function PatientDashboardPage() {
                       <Clock className="h-3.5 w-3.5 text-slate-400 shrink-0" />
                       <span>{doc.experience}</span>
                     </div>
+                  </div>
+
+                  {/* Common Treated Symptoms */}
+                  <div className="flex flex-wrap items-center gap-1">
+                    <span className="text-[10px] text-slate-400 font-medium mr-1">Treats:</span>
+                    {doc.symptoms.slice(0, 4).map((sym) => (
+                      <span
+                        key={sym}
+                        className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] text-slate-600 dark:text-slate-300 capitalize"
+                      >
+                        {sym}
+                      </span>
+                    ))}
                   </div>
 
                   {/* 7-Day Schedule Indicator */}
@@ -593,9 +738,11 @@ export default function PatientDashboardPage() {
             <CardHeader className="border-b border-slate-100 dark:border-slate-800 pb-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className={`h-10 w-10 rounded-xl bg-gradient-to-tr ${bookingDoctor.avatar_bg} text-white flex items-center justify-center font-bold text-xs`}>
-                    <Stethoscope className="h-5 w-5" />
-                  </div>
+                  <Avatar className="h-11 w-11 border border-white/20 shadow-xs">
+                    <AvatarFallback className={cn("bg-gradient-to-tr text-white font-bold text-xs", bookingDoctor.avatar_bg)}>
+                      {bookingDoctor.name.split(" ").slice(1).map((n) => n[0]).join("") || "DR"}
+                    </AvatarFallback>
+                  </Avatar>
                   <div>
                     <CardTitle className="text-lg">Schedule Consultation</CardTitle>
                     <CardDescription className="text-xs">

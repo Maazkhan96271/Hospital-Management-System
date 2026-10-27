@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { DataTable, Column } from "@/components/ui/data-table";
 import {
   Sheet,
@@ -354,24 +355,55 @@ export default function BillingInvoicingPage() {
       header: "Patient",
       accessorFn: (row) => row.patient_name || `Patient #${row.patient_id}`,
       sortable: true,
-      cell: (row) => (
-        <div>
-          <span className="font-bold text-xs text-slate-900 dark:text-white">
-            {row.patient_name || `Patient #${row.patient_id}`}
-          </span>
-          <span className="block text-[11px] text-slate-400">ID: #{row.patient_id}</span>
-        </div>
-      ),
+      cell: (row) => {
+        const name = row.patient_name || `Patient #${row.patient_id}`;
+        const initials = row.patient_name
+          ? row.patient_name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
+          : "PT";
+        return (
+          <div className="flex items-center gap-2.5">
+            <Avatar className="h-8 w-8 border border-blue-500/20 bg-blue-50 dark:bg-blue-950/50">
+              <AvatarFallback className="text-blue-700 dark:text-blue-300 font-bold text-xs">
+                {initials}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <span className="font-bold text-xs text-slate-900 dark:text-white">
+                {name}
+              </span>
+              <span className="block text-[11px] text-slate-400">ID: #{row.patient_id}</span>
+            </div>
+          </div>
+        );
+      },
     },
     {
       header: "Attending Doctor",
       accessorKey: "doctor_name",
       sortable: true,
-      cell: (row) => (
-        <span className="font-medium text-slate-700 dark:text-slate-300">
-          {row.doctor_name || "Hospital Staff"}
-        </span>
-      ),
+      cell: (row) => {
+        const docName = row.doctor_name || "Hospital Staff";
+        const docInitials = docName
+          .replace("Dr.", "")
+          .trim()
+          .split(" ")
+          .map((n) => n[0])
+          .join("")
+          .toUpperCase()
+          .slice(0, 2) || "DR";
+        return (
+          <div className="flex items-center gap-2">
+            <Avatar className="h-6 w-6 border border-emerald-500/20 bg-emerald-50 dark:bg-emerald-950/50">
+              <AvatarFallback className="text-emerald-700 dark:text-emerald-300 font-bold text-[9px]">
+                {docInitials}
+              </AvatarFallback>
+            </Avatar>
+            <span className="font-medium text-slate-700 dark:text-slate-300 text-xs">
+              {docName}
+            </span>
+          </div>
+        );
+      },
     },
     {
       header: "Issued Date",
