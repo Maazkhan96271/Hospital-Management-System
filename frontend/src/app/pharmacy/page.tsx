@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Table,
   TableBody,
@@ -26,6 +27,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
+import { DataTable, ColumnDef } from "@/components/ui/data-table";
+import {
   Pill,
   AlertTriangle,
   CheckCircle2,
@@ -42,6 +51,14 @@ import {
   Layers,
   ChevronRight,
   Sparkles,
+  User,
+  Phone,
+  Mail,
+  FileText,
+  LayoutGrid,
+  List as ListIcon,
+  Activity,
+  HeartPulse,
 } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch, ApiError } from "@/lib/api";
@@ -61,6 +78,7 @@ interface PendingPrescription {
   patient_id: number;
   patient_name: string;
   patient_email?: string;
+  patient_phone?: string;
   doctor_name: string;
   appointment_date: string;
   diagnosis: string;
@@ -130,6 +148,7 @@ const FALLBACK_PRESCRIPTIONS: PendingPrescription[] = [
     patient_id: 2,
     patient_name: "Bob Jones",
     patient_email: "bob.jones@example.com",
+    patient_phone: "+1 (555) 234-5678",
     doctor_name: "Dr. Alice Smith",
     appointment_date: "Today, 09:30 AM",
     diagnosis: "Stage 1 Essential Hypertension with exertional palpitations",
@@ -160,6 +179,7 @@ const FALLBACK_PRESCRIPTIONS: PendingPrescription[] = [
     patient_id: 4,
     patient_name: "Jane Doe",
     patient_email: "jane.doe@example.com",
+    patient_phone: "+1 (555) 345-6789",
     doctor_name: "Dr. David Johnson",
     appointment_date: "Today, 10:45 AM",
     diagnosis: "Acute Bronchitis & Upper Respiratory Infection",
@@ -191,7 +211,7 @@ export default function PharmacyPOSPage() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"prescriptions" | "low_stock" | "catalog">("prescriptions");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [prescriptionViewMode, setPrescriptionViewMode] = useState<"table" | "cards">("table");
 
   // Data states
   const [pendingPrescriptions, setPendingPrescriptions] = useState<PendingPrescription[]>([]);
@@ -202,6 +222,10 @@ export default function PharmacyPOSPage() {
   // Dispense modal / selection
   const [selectedPrescription, setSelectedPrescription] = useState<PendingPrescription | null>(null);
   const [isDispensing, setIsDispensing] = useState(false);
+
+  // Patient Profile Slide-out Sheet
+  const [selectedPatientForSheet, setSelectedPatientForSheet] = useState<PendingPrescription | null>(null);
+  const [isPatientSheetOpen, setIsPatientSheetOpen] = useState(false);
 
   // Restock modal
   const [restockItem, setRestockItem] = useState<PharmacyItem | null>(null);
@@ -257,7 +281,7 @@ export default function PharmacyPOSPage() {
   const handleDispense = async (prescription: PendingPrescription) => {
     setIsDispensing(true);
     try {
-      const res = await apiFetch<any>(`/api/pharmacy/prescriptions/${prescription.appointment_id}/dispense`, {
+      await apiFetch<any>(`/api/pharmacy/prescriptions/${prescription.appointment_id}/dispense`, {
         method: "POST",
       }).catch(() => null);
 
@@ -285,6 +309,7 @@ export default function PharmacyPOSPage() {
       );
 
       setSelectedPrescription(null);
+      setIsPatientSheetOpen(false);
     } catch (err: any) {
       toast.error("Dispensing Failed", {
         description: err.message || "Could not process dispensing request.",
@@ -333,40 +358,334 @@ export default function PharmacyPOSPage() {
     }
   };
 
-  // Filtered lists
-  const filteredPrescriptions = useMemo(() => {
-    if (!searchQuery.trim()) return pendingPrescriptions;
-    const q = searchQuery.toLowerCase();
-    return pendingPrescriptions.filter(
-      (p) =>
-        p.patient_name.toLowerCase().includes(q) ||
-        p.doctor_name.toLowerCase().includes(q) ||
-        p.diagnosis.toLowerCase().includes(q) ||
-        (p.invoice_number && p.invoice_number.toLowerCase().includes(q))
-    );
-  }, [pendingPrescriptions, searchQuery]);
+  // Helper to open patient slide-out Sheet
+  const openPatientProfile = (p: PendingPrescription) => {
+    setSelectedPatientForSheet(p);
+    setIsPatientSheetOpen(true);
+  };
 
-  const filteredLowStock = useMemo(() => {
-    if (!searchQuery.trim()) return lowStockItems;
-    const q = searchQuery.toLowerCase();
-    return lowStockItems.filter(
-      (item) =>
-        item.name.toLowerCase().includes(q) ||
-        item.sku.toLowerCase().includes(q) ||
-        item.category.toLowerCase().includes(q)
-    );
-  }, [lowStockItems, searchQuery]);
+  // =========================================================================
+  // COLUMNS: PENDING PRESCRIPTIONS DATA TABLE
+  // =========================================================================
+  const prescriptionColumns = useMemo<ColumnDef<PendingPrescription>[]>(
+    () => [
+      {
+        accessorKey: "patient_name",
+        header: "Patient",
+        sortable: true,
+        cell: (row: PendingPrescription) => (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              openPatientProfile(row);
+            }}
+            className="text-left group flex items-center gap-2.5 hover:opacity-80 transition-opacity cursor-pointer"
+          >
+            <Avatar className="h-8 w-8 border border-purple-200 dark:border-purple-800">
+              <AvatarFallback className="bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 font-bold text-xs">
+                {row.patient_name.slice(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <div className="font-bold text-sm text-slate-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors flex items-center gap-1.5">
+                {row.patient_name}
+                <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+              <div className="text-[11px] text-slate-400">
+                Patient #{row.patient_id}
+              </div>
+            </div>
+          </button>
+        ),
+      },
+      {
+        accessorKey: "doctor_name",
+        header: "Prescribed By",
+        sortable: true,
+        cell: (row: PendingPrescription) => (
+          <div>
+            <span className="font-semibold text-xs text-slate-800 dark:text-slate-200">
+              {row.doctor_name}
+            </span>
+            <div className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
+              <Calendar className="h-3 w-3" />
+              {row.appointment_date}
+            </div>
+          </div>
+        ),
+      },
+      {
+        accessorKey: "diagnosis",
+        header: "Clinical Indication",
+        sortable: true,
+        cell: (row: PendingPrescription) => (
+          <div className="max-w-xs text-xs text-slate-600 dark:text-slate-300 line-clamp-2">
+            {row.diagnosis}
+          </div>
+        ),
+      },
+      {
+        accessorKey: "medications",
+        header: "Prescribed Items",
+        cell: (row: PendingPrescription) => (
+          <div className="flex flex-wrap gap-1 max-w-xs">
+            {row.medications.map((m: PrescribedMedicationLine, idx: number) => (
+              <Badge
+                key={idx}
+                variant="secondary"
+                className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium"
+              >
+                {m.name} ({m.dosage || "1-0-1"})
+              </Badge>
+            ))}
+          </div>
+        ),
+      },
+      {
+        accessorKey: "total_amount",
+        header: "Bill Total",
+        sortable: true,
+        cell: (row: PendingPrescription) => (
+          <div className="font-mono font-bold text-xs text-slate-900 dark:text-white">
+            ${row.total_amount.toFixed(2)}
+          </div>
+        ),
+      },
+      {
+        accessorKey: "status",
+        header: "Status",
+        sortable: true,
+        cell: (row: PendingPrescription) => (
+          <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-0 text-[10px] font-bold">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1 animate-pulse"></span>
+            {row.status} Dispensing
+          </Badge>
+        ),
+      },
+      {
+        accessorKey: "appointment_id",
+        header: "Action",
+        align: "right",
+        cell: (row: PendingPrescription) => (
+          <div className="flex items-center justify-end gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedPrescription(row);
+              }}
+              className="h-8 text-xs font-semibold px-2.5"
+            >
+              Review
+            </Button>
+            <Button
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDispense(row);
+              }}
+              className="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs gap-1 h-8 px-2.5 shadow-xs"
+            >
+              <Pill className="h-3.5 w-3.5" />
+              Dispense
+            </Button>
+          </div>
+        ),
+      },
+    ],
+    []
+  );
 
-  const filteredCatalog = useMemo(() => {
-    if (!searchQuery.trim()) return allInventory;
-    const q = searchQuery.toLowerCase();
-    return allInventory.filter(
-      (item) =>
-        item.name.toLowerCase().includes(q) ||
-        item.sku.toLowerCase().includes(q) ||
-        item.category.toLowerCase().includes(q)
-    );
-  }, [allInventory, searchQuery]);
+  // =========================================================================
+  // COLUMNS: LOW STOCK DATA TABLE
+  // =========================================================================
+  const lowStockColumns = useMemo<ColumnDef<PharmacyItem>[]>(
+    () => [
+      {
+        accessorKey: "sku",
+        header: "SKU / Code",
+        sortable: true,
+        cell: (row: PharmacyItem) => (
+          <span className="font-mono text-xs font-bold text-slate-700 dark:text-slate-300">
+            {row.sku}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "name",
+        header: "Medicine Name",
+        sortable: true,
+        cell: (row: PharmacyItem) => (
+          <div>
+            <div className="font-bold text-sm text-slate-900 dark:text-white">
+              {row.name}
+            </div>
+            <span className="text-[11px] text-slate-400 capitalize">{row.unit || "unit"}</span>
+          </div>
+        ),
+      },
+      {
+        accessorKey: "category",
+        header: "Category",
+        sortable: true,
+        cell: (row: PharmacyItem) => (
+          <Badge variant="secondary" className="text-[11px]">
+            {row.category}
+          </Badge>
+        ),
+      },
+      {
+        accessorKey: "stock_quantity",
+        header: "Remaining Stock",
+        sortable: true,
+        align: "center",
+        cell: (row: PharmacyItem) => (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-black bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 font-mono">
+            {row.stock_quantity} left
+          </span>
+        ),
+      },
+      {
+        accessorKey: "reorder_level",
+        header: "Reorder Level",
+        sortable: true,
+        align: "center",
+        cell: (row: PharmacyItem) => (
+          <span className="font-mono text-xs text-slate-500 font-semibold">
+            &le; {row.reorder_level} units
+          </span>
+        ),
+      },
+      {
+        accessorKey: "price_per_unit",
+        header: "Unit Price",
+        sortable: true,
+        cell: (row: PharmacyItem) => (
+          <span className="font-mono text-xs font-bold text-slate-900 dark:text-white">
+            ${row.price_per_unit.toFixed(2)}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "expiry_date",
+        header: "Expiry Date",
+        sortable: true,
+        cell: (row: PharmacyItem) => (
+          <span className="text-xs text-slate-500 font-mono">{row.expiry_date}</span>
+        ),
+      },
+      {
+        accessorKey: "id",
+        header: "Stock Action",
+        align: "right",
+        cell: (row: PharmacyItem) => (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setRestockItem(row)}
+            className="text-xs font-bold text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800 hover:bg-amber-100 gap-1.5 h-8"
+          >
+            <PlusCircle className="h-3.5 w-3.5" />
+            Restock
+          </Button>
+        ),
+      },
+    ],
+    []
+  );
+
+  // =========================================================================
+  // COLUMNS: ALL INVENTORY CATALOG DATA TABLE
+  // =========================================================================
+  const catalogColumns = useMemo<ColumnDef<PharmacyItem>[]>(
+    () => [
+      {
+        accessorKey: "sku",
+        header: "SKU",
+        sortable: true,
+        cell: (row: PharmacyItem) => (
+          <span className="font-mono text-xs font-bold text-slate-600 dark:text-slate-400">
+            {row.sku}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "name",
+        header: "Medication Name",
+        sortable: true,
+        cell: (row: PharmacyItem) => (
+          <div className="font-bold text-sm text-slate-900 dark:text-white">
+            {row.name}
+          </div>
+        ),
+      },
+      {
+        accessorKey: "category",
+        header: "Category",
+        sortable: true,
+        cell: (row: PharmacyItem) => (
+          <Badge variant="secondary" className="text-[11px]">
+            {row.category}
+          </Badge>
+        ),
+      },
+      {
+        accessorKey: "stock_quantity",
+        header: "Stock Balance",
+        sortable: true,
+        align: "center",
+        cell: (row: PharmacyItem) => {
+          const isLow = row.stock_quantity <= row.reorder_level;
+          return isLow ? (
+            <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-0 font-mono text-xs">
+              {row.stock_quantity} (Low Stock)
+            </Badge>
+          ) : (
+            <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-0 font-mono text-xs">
+              {row.stock_quantity} In Stock
+            </Badge>
+          );
+        },
+      },
+      {
+        accessorKey: "price_per_unit",
+        header: "Unit Price",
+        sortable: true,
+        cell: (row: PharmacyItem) => (
+          <span className="font-mono text-xs font-bold text-slate-900 dark:text-white">
+            ${row.price_per_unit.toFixed(2)}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "expiry_date",
+        header: "Expiry Date",
+        sortable: true,
+        cell: (row: PharmacyItem) => (
+          <span className="text-xs text-slate-500 font-mono">{row.expiry_date}</span>
+        ),
+      },
+      {
+        accessorKey: "id",
+        header: "Action",
+        align: "right",
+        cell: (row: PharmacyItem) => (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setRestockItem(row)}
+            className="text-xs font-semibold text-blue-600 hover:text-blue-700 h-8 gap-1"
+          >
+            <PlusCircle className="h-3.5 w-3.5" />
+            Add Stock
+          </Button>
+        ),
+      },
+    ],
+    []
+  );
 
   return (
     <div className="space-y-8">
@@ -482,10 +801,9 @@ export default function PharmacyPOSPage() {
         </Card>
       </div>
 
-      {/* Tabs and Search Controls */}
+      {/* Tabs Selector */}
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          {/* Module Tab Selector */}
           <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-xl w-full sm:w-auto">
             <button
               type="button"
@@ -537,20 +855,28 @@ export default function PharmacyPOSPage() {
             </button>
           </div>
 
-          {/* Quick Filter Search */}
-          <div className="relative w-full sm:w-72">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-            <Input
-              placeholder={
-                activeTab === "prescriptions"
-                  ? "Search patient, doctor, diagnosis..."
-                  : "Search medicine name, SKU, category..."
-              }
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 text-xs h-9"
-            />
-          </div>
+          {activeTab === "prescriptions" && (
+            <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl self-end">
+              <Button
+                variant={prescriptionViewMode === "table" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setPrescriptionViewMode("table")}
+                className="h-8 text-xs gap-1"
+              >
+                <ListIcon className="h-3.5 w-3.5" />
+                Data Table
+              </Button>
+              <Button
+                variant={prescriptionViewMode === "cards" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setPrescriptionViewMode("cards")}
+                className="h-8 text-xs gap-1"
+              >
+                <LayoutGrid className="h-3.5 w-3.5" />
+                Cards
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* ===================================================================== */}
@@ -564,19 +890,20 @@ export default function PharmacyPOSPage() {
                 <Skeleton className="h-28 rounded-2xl" />
                 <Skeleton className="h-28 rounded-2xl" />
               </div>
-            ) : filteredPrescriptions.length === 0 ? (
-              <Card className="p-12 text-center border-dashed border-slate-300 dark:border-slate-800">
-                <CheckCircle2 className="h-10 w-10 text-emerald-500 mx-auto mb-3" />
-                <h3 className="font-bold text-base text-slate-900 dark:text-white">
-                  All Prescriptions Dispensed!
-                </h3>
-                <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                  No pending medication orders awaiting dispensing at this POS station. New doctor prescriptions will stream in automatically.
-                </p>
-              </Card>
+            ) : prescriptionViewMode === "table" ? (
+              <DataTable
+                columns={prescriptionColumns}
+                data={pendingPrescriptions}
+                searchPlaceholder="Search by patient name, doctor, diagnosis..."
+                searchKey="patient_name"
+                emptyMessage="All prescriptions have been dispensed! No pending medication orders in queue."
+                onRowClick={(row) => openPatientProfile(row)}
+                pageSizeOptions={[5, 10, 20]}
+                defaultPageSize={10}
+              />
             ) : (
               <div className="grid grid-cols-1 gap-4">
-                {filteredPrescriptions.map((prescription) => (
+                {pendingPrescriptions.map((prescription) => (
                   <Card
                     key={prescription.appointment_id}
                     className="border-slate-200/90 dark:border-slate-800/80 hover:border-purple-300 dark:hover:border-purple-800 transition-all bg-white dark:bg-slate-900 shadow-xs"
@@ -586,9 +913,14 @@ export default function PharmacyPOSPage() {
                         {/* Patient & Doctor metadata */}
                         <div className="space-y-1.5 flex-1">
                           <div className="flex items-center gap-2.5 flex-wrap">
-                            <span className="font-black text-base text-slate-900 dark:text-white">
+                            <button
+                              type="button"
+                              onClick={() => openPatientProfile(prescription)}
+                              className="font-black text-base text-slate-900 dark:text-white hover:text-purple-600 transition-colors cursor-pointer text-left flex items-center gap-1.5"
+                            >
                               {prescription.patient_name}
-                            </span>
+                              <ChevronRight className="h-4 w-4 text-slate-400" />
+                            </button>
                             <Badge variant="outline" className="text-[10px] font-mono">
                               Patient #{prescription.patient_id}
                             </Badge>
@@ -667,184 +999,236 @@ export default function PharmacyPOSPage() {
         )}
 
         {/* ===================================================================== */}
-        {/* TAB 2: LOW STOCK ALERTS TABLE                                         */}
+        {/* TAB 2: LOW STOCK ALERTS DATA TABLE                                    */}
         {/* ===================================================================== */}
         {activeTab === "low_stock" && (
-          <Card className="border-amber-200/80 dark:border-amber-900/40 bg-white dark:bg-slate-900 shadow-xs">
-            <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-base font-bold text-amber-950 dark:text-amber-200 flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-amber-600" />
-                    Critical Low-Stock Medicines
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    Pharmaceutical items whose remaining inventory has dropped to or below safety reorder levels.
-                  </CardDescription>
+          <div className="space-y-4">
+            <Card className="border-amber-200/80 dark:border-amber-900/40 bg-white dark:bg-slate-900 shadow-xs">
+              <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-base font-bold text-amber-950 dark:text-amber-200 flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 text-amber-600" />
+                      Critical Low-Stock Medicines
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      Pharmaceutical items whose remaining inventory has dropped to or below safety reorder levels.
+                    </CardDescription>
+                  </div>
+                  <Badge variant="destructive" className="bg-amber-600 font-mono text-xs">
+                    {lowStockItems.length} Items Need Restocking
+                  </Badge>
                 </div>
-                <Badge variant="destructive" className="bg-amber-600 font-mono text-xs">
-                  {filteredLowStock.length} Items Need Restocking
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-slate-50 dark:bg-slate-900/60">
-                    <TableHead className="text-xs font-bold uppercase">SKU / Code</TableHead>
-                    <TableHead className="text-xs font-bold uppercase">Medicine Name</TableHead>
-                    <TableHead className="text-xs font-bold uppercase">Category</TableHead>
-                    <TableHead className="text-xs font-bold uppercase text-center">Remaining Stock</TableHead>
-                    <TableHead className="text-xs font-bold uppercase text-center">Reorder Threshold</TableHead>
-                    <TableHead className="text-xs font-bold uppercase">Unit Price</TableHead>
-                    <TableHead className="text-xs font-bold uppercase">Expiry Date</TableHead>
-                    <TableHead className="text-xs font-bold uppercase text-right">Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredLowStock.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8 text-xs text-slate-400">
-                        No critical low-stock items detected in inventory!
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredLowStock.map((item) => (
-                      <TableRow key={item.id} className="hover:bg-amber-50/40 dark:hover:bg-amber-950/20">
-                        <TableCell className="font-mono text-xs font-bold text-slate-700 dark:text-slate-300">
-                          {item.sku}
-                        </TableCell>
-                        <TableCell>
-                          <div className="font-bold text-sm text-slate-900 dark:text-white">
-                            {item.name}
-                          </div>
-                          <span className="text-[11px] text-slate-400 capitalize">{item.unit || "unit"}</span>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="secondary" className="text-[11px]">
-                            {item.category}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-black bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 font-mono">
-                            {item.stock_quantity} left
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-center font-mono text-xs text-slate-500 font-semibold">
-                          &le; {item.reorder_level} units
-                        </TableCell>
-                        <TableCell className="font-mono text-xs font-bold text-slate-900 dark:text-white">
-                          ${item.price_per_unit.toFixed(2)}
-                        </TableCell>
-                        <TableCell className="text-xs text-slate-500">
-                          {item.expiry_date}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setRestockItem(item)}
-                            className="text-xs font-bold text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800 hover:bg-amber-100 gap-1.5 h-8"
-                          >
-                            <PlusCircle className="h-3.5 w-3.5" />
-                            Restock
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+              </CardHeader>
+              <CardContent className="p-4">
+                <DataTable
+                  columns={lowStockColumns}
+                  data={lowStockItems}
+                  searchPlaceholder="Filter low-stock medicines by SKU or name..."
+                  searchKey="name"
+                  emptyMessage="No critical low-stock items detected in inventory! All formulations are healthy."
+                  pageSizeOptions={[5, 10, 20]}
+                  defaultPageSize={10}
+                />
+              </CardContent>
+            </Card>
+          </div>
         )}
 
         {/* ===================================================================== */}
-        {/* TAB 3: FULL INVENTORY CATALOG                                         */}
+        {/* TAB 3: FULL INVENTORY CATALOG DATA TABLE                              */}
         {/* ===================================================================== */}
         {activeTab === "catalog" && (
-          <Card className="border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
-            <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <Package className="h-4 w-4 text-blue-600" />
-                    Complete Formulary & Medication Catalog
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    Real-time stock balance, unit pricing, and reorder levels for hospital pharmacy.
-                  </CardDescription>
+          <div className="space-y-4">
+            <Card className="border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
+              <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                      <Package className="h-4 w-4 text-blue-600" />
+                      Complete Formulary & Medication Catalog
+                    </CardTitle>
+                    <CardDescription className="text-xs">
+                      Real-time stock balance, unit pricing, and reorder levels for hospital pharmacy.
+                    </CardDescription>
+                  </div>
+                  <Badge variant="outline" className="font-mono text-xs">
+                    {allInventory.length} Total SKUs
+                  </Badge>
                 </div>
-                <Badge variant="outline" className="font-mono text-xs">
-                  {filteredCatalog.length} Total SKUs
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-slate-50 dark:bg-slate-900/60">
-                    <TableHead className="text-xs font-bold uppercase">SKU</TableHead>
-                    <TableHead className="text-xs font-bold uppercase">Medication Name</TableHead>
-                    <TableHead className="text-xs font-bold uppercase">Category</TableHead>
-                    <TableHead className="text-xs font-bold uppercase text-center">Stock Quantity</TableHead>
-                    <TableHead className="text-xs font-bold uppercase">Unit Price</TableHead>
-                    <TableHead className="text-xs font-bold uppercase">Expiry</TableHead>
-                    <TableHead className="text-xs font-bold uppercase text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredCatalog.map((item) => (
-                    <TableRow key={item.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
-                      <TableCell className="font-mono text-xs font-bold text-slate-600 dark:text-slate-400">
-                        {item.sku}
-                      </TableCell>
-                      <TableCell>
-                        <div className="font-bold text-sm text-slate-900 dark:text-white">
-                          {item.name}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className="text-[11px]">
-                          {item.category}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-center font-mono text-xs">
-                        {item.stock_quantity <= item.reorder_level ? (
-                          <span className="font-bold text-amber-600 dark:text-amber-400">
-                            {item.stock_quantity} (Low)
-                          </span>
-                        ) : (
-                          <span className="font-semibold text-slate-700 dark:text-slate-300">
-                            {item.stock_quantity}
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs font-bold text-slate-900 dark:text-white">
-                        ${item.price_per_unit.toFixed(2)}
-                      </TableCell>
-                      <TableCell className="text-xs text-slate-500">
-                        {item.expiry_date}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setRestockItem(item)}
-                          className="text-xs font-semibold text-blue-600 hover:text-blue-700 h-8 gap-1"
-                        >
-                          <PlusCircle className="h-3.5 w-3.5" />
-                          Add Stock
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+              </CardHeader>
+              <CardContent className="p-4">
+                <DataTable
+                  columns={catalogColumns}
+                  data={allInventory}
+                  searchPlaceholder="Search catalog by medication name, SKU, category..."
+                  searchKey="name"
+                  emptyMessage="No medications found matching your search query."
+                  pageSizeOptions={[10, 25, 50]}
+                  defaultPageSize={10}
+                />
+              </CardContent>
+            </Card>
+          </div>
         )}
       </div>
+
+      {/* ========================================================================= */}
+      {/* SLIDE-OUT SHEET: PATIENT MINI-PROFILE & MEDICAL HISTORY                   */}
+      {/* ========================================================================= */}
+      <Sheet open={isPatientSheetOpen} onOpenChange={setIsPatientSheetOpen}>
+        <SheetContent className="w-full sm:max-w-xl overflow-y-auto p-0 flex flex-col bg-white dark:bg-slate-900">
+          {selectedPatientForSheet && (
+            <div className="flex-1 flex flex-col justify-between">
+              <div>
+                {/* Header Profile Banner */}
+                <div className="p-6 border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-3.5">
+                      <Avatar className="h-12 w-12 border-2 border-purple-500/30">
+                        <AvatarFallback className="bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300 font-black text-sm">
+                          {selectedPatientForSheet.patient_name.slice(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <SheetTitle className="text-xl font-black text-slate-900 dark:text-white">
+                            {selectedPatientForSheet.patient_name}
+                          </SheetTitle>
+                          <Badge variant="outline" className="text-[10px] font-mono">
+                            ID: #{selectedPatientForSheet.patient_id}
+                          </Badge>
+                        </div>
+                        <SheetDescription className="text-xs text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
+                          {selectedPatientForSheet.patient_email && (
+                            <span className="flex items-center gap-1">
+                              <Mail className="h-3 w-3" />
+                              {selectedPatientForSheet.patient_email}
+                            </span>
+                          )}
+                          {selectedPatientForSheet.patient_phone && (
+                            <>
+                              <span>•</span>
+                              <span className="flex items-center gap-1">
+                                <Phone className="h-3 w-3" />
+                                {selectedPatientForSheet.patient_phone}
+                              </span>
+                            </>
+                          )}
+                        </SheetDescription>
+                      </div>
+                    </div>
+
+                    <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 border-0 text-xs font-bold">
+                      {selectedPatientForSheet.status} Dispensing
+                    </Badge>
+                  </div>
+                </div>
+
+                {/* Patient Details & Prescribed Therapy */}
+                <div className="p-6 space-y-6">
+                  {/* Encounter Diagnosis */}
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                      <Activity className="h-3.5 w-3.5 text-purple-600" />
+                      Current Clinical Diagnosis
+                    </Label>
+                    <div className="p-3 rounded-xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/40 text-xs text-slate-800 dark:text-slate-200 font-medium">
+                      {selectedPatientForSheet.diagnosis}
+                    </div>
+                  </div>
+
+                  {/* Physician Details */}
+                  <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-xs">
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-bold">Attending Doctor</span>
+                      <strong className="text-slate-900 dark:text-white font-semibold">
+                        {selectedPatientForSheet.doctor_name}
+                      </strong>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-bold">Prescription Date</span>
+                      <strong className="text-slate-900 dark:text-white font-semibold">
+                        {selectedPatientForSheet.appointment_date}
+                      </strong>
+                    </div>
+                  </div>
+
+                  {/* Medications to Dispense */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                        <Pill className="h-3.5 w-3.5 text-purple-600" />
+                        Prescribed Medication Regimen ({selectedPatientForSheet.medications.length} items)
+                      </Label>
+                      <span className="font-mono font-bold text-xs text-emerald-600">
+                        Total: ${selectedPatientForSheet.total_amount.toFixed(2)}
+                      </span>
+                    </div>
+
+                    <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden divide-y divide-slate-100 dark:divide-slate-800">
+                      {selectedPatientForSheet.medications.map((med, idx) => (
+                        <div key={idx} className="p-3 flex items-center justify-between text-xs hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                          <div>
+                            <p className="font-bold text-slate-900 dark:text-white">{med.name}</p>
+                            <p className="text-slate-500 text-[11px] mt-0.5">
+                              Dosage: {med.dosage || "1-0-1"} • Duration: {med.duration || "5 days"}
+                            </p>
+                          </div>
+                          <div className="text-right font-mono">
+                            <span className="font-bold text-slate-700 dark:text-slate-300">
+                              Qty: {med.quantity}
+                            </span>
+                            <p className="text-[11px] text-slate-400">
+                              ${(med.unit_price * med.quantity).toFixed(2)}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Pharmacy Safety Notes */}
+                  <div className="p-3.5 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 text-xs space-y-1">
+                    <p className="font-bold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+                      <ShieldAlert className="h-3.5 w-3.5 text-amber-600" />
+                      Dispensing Safety Checklist
+                    </p>
+                    <p className="text-amber-700 dark:text-amber-300 text-[11px]">
+                      Ensure proper patient identification, check allergy interactions, verify expiry dates on blister packs, and provide counseling on food timing.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom Actions */}
+              <div className="p-4 border-t border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/60 flex items-center justify-between gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsPatientSheetOpen(false)}
+                  className="text-xs"
+                >
+                  Close Profile
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => handleDispense(selectedPatientForSheet)}
+                  disabled={isDispensing}
+                  className="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs gap-1.5 shadow-xs"
+                >
+                  {isDispensing ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Pill className="h-3.5 w-3.5" />
+                  )}
+                  Dispense & Deduct Stock
+                </Button>
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
 
       {/* ========================================================================= */}
       {/* DIALOG 1: PRESCRIPTION DETAILS & DISPENSING CONFIRMATION MODAL            */}

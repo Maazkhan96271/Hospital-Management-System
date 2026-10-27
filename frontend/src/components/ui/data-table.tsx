@@ -32,14 +32,18 @@ export interface Column<T> {
   sortable?: boolean;
   className?: string;
   headerClassName?: string;
+  align?: "left" | "center" | "right";
   cell?: (row: T, index: number) => React.ReactNode;
 }
+
+export type ColumnDef<T> = Column<T>;
 
 interface DataTableProps<T> {
   columns: Column<T>[];
   data: T[];
   searchPlaceholder?: string;
   searchableKeys?: (keyof T | string)[];
+  searchKey?: keyof T | string;
   defaultPageSize?: number;
   pageSizeOptions?: number[];
   onRowClick?: (row: T) => void;
@@ -54,6 +58,7 @@ export function DataTable<T extends Record<string, any>>({
   data,
   searchPlaceholder = "Filter records...",
   searchableKeys,
+  searchKey,
   defaultPageSize = 10,
   pageSizeOptions = [5, 10, 20, 50],
   onRowClick,
@@ -80,10 +85,10 @@ export function DataTable<T extends Record<string, any>>({
   const filteredData = useMemo(() => {
     if (!searchQuery.trim()) return data;
     const q = searchQuery.toLowerCase().trim();
+    const effectiveKeys = searchKey ? [searchKey] : (searchableKeys || Object.keys(data[0] || {}));
 
     return data.filter((row) => {
-      // If searchableKeys provided, check those; otherwise check all object values
-      const keysToCheck = searchableKeys || Object.keys(row);
+      const keysToCheck = effectiveKeys.length > 0 ? effectiveKeys : Object.keys(row);
       return keysToCheck.some((key) => {
         const val = getRowValue(row, key as string);
         if (val === null || val === undefined) return false;
@@ -91,7 +96,7 @@ export function DataTable<T extends Record<string, any>>({
         return String(val).toLowerCase().includes(q);
       });
     });
-  }, [data, searchQuery, searchableKeys]);
+  }, [data, searchQuery, searchableKeys, searchKey]);
 
   // 2. Sorting
   const sortedData = useMemo(() => {
@@ -204,7 +209,13 @@ export function DataTable<T extends Record<string, any>>({
                       )}
                       onClick={() => column.sortable && handleSort(key)}
                     >
-                      <div className="flex items-center gap-1.5">
+                      <div
+                        className={cn(
+                          "flex items-center gap-1.5",
+                          column.align === "center" && "justify-center",
+                          column.align === "right" && "justify-end"
+                        )}
+                      >
                         <span>{column.header}</span>
                         {column.sortable && (
                           <span className="text-slate-400">
@@ -269,7 +280,12 @@ export function DataTable<T extends Record<string, any>>({
                       return (
                         <TableCell
                           key={cIdx}
-                          className={cn("py-3 text-xs", column.className)}
+                          className={cn(
+                            "py-3 text-xs",
+                            column.align === "center" && "text-center",
+                            column.align === "right" && "text-right",
+                            column.className
+                          )}
                         >
                           {cellValue}
                         </TableCell>
