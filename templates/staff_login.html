@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Doctor & Admin Staff Login – HMS{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-5">
+        <div class="card shadow border-0">
+            <div class="card-header bg-dark text-white text-center py-3">
+                <h4 class="mb-0">
+                    <i class="bi bi-shield-lock text-warning me-1"></i> Staff Portal
+                </h4>
+                <small class="text-white-50">Authorized Doctors and Administrators Only</small>
+            </div>
+            <div class="card-body p-4">
+                <div class="alert alert-warning small py-2 mb-3">
+                    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                    <strong>Restricted Access:</strong> Staff accounts are provisioned exclusively by Hospital Administration. Public self-registration is strictly disallowed.
+                </div>
+
+                <form method="POST" class="needs-validation" novalidate>
+                    {{ form.hidden_tag() }}
+
+                    <div class="mb-3">
+                        {{ form.username.label(class="form-label fw-semibold") }}
+                        <div class="input-group has-validation">
+                            <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
+                            {{ form.username(class="form-control" + (" is-invalid" if form.username.errors else ""), placeholder="Staff username", required=True, minlength="3", maxlength="80", autocomplete="username") }}
+                            <div class="invalid-feedback">Please enter your staff username.</div>
+                        </div>
+                        {% for error in form.username.errors %}
+                            <div class="text-danger small mt-1">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.password.label(class="form-label fw-semibold") }}
+                        <div class="input-group has-validation">
+                            <span class="input-group-text"><i class="bi bi-key"></i></span>
+                            {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else ""), placeholder="Staff password", required=True, autocomplete="current-password") }}
+                            <div class="invalid-feedback">Please enter your password.</div>
+                        </div>
+                        {% for error in form.password.errors %}
+                            <div class="text-danger small mt-1">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+
+                    <div class="mb-3 form-check">
+                        {{ form.remember_me(class="form-check-input") }}
+                        {{ form.remember_me.label(class="form-check-label text-muted small") }}
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-dark btn-lg shadow-sm">
+                            <i class="bi bi-box-arrow-in-right me-1"></i> Log In to Staff Portal
+                        </button>
+                    </div>
+                </form>
+
+                <hr class="my-4">
+                <div class="text-center">
+                    <p class="text-muted small mb-1">Are you a patient seeking consultation?</p>
+                    <a href="{{ url_for('login') }}" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-person me-1"></i> Go to Patient Login
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

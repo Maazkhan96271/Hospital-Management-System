@@ -146,13 +146,108 @@ def test_flask_modular_app_startup_and_admin_seeding():
 
         # Test HTTP endpoints with test client
         client = app.test_client()
+
+        # 6. Verify Anonymous Navbar in base.html
         res = client.get("/")
         assert res.status_code == 200
-        print("✅ Landing page route works.")
+        html = res.data.decode("utf-8")
+        assert "MediCare HMS" in html
+        assert "Patient Login" in html
+        assert "Doctor & Admin Portal" in html
+        assert "Register as Patient" in html
+        print("✅ Anonymous responsive navbar renders correctly in base.html.")
 
-        login_res = client.get("/login")
+        # 7. Test Public Patient Registration (strictly assigns Patient role)
+        reg_res = client.post(
+            "/register",
+            data={
+                "username": "new_patient_alice",
+                "email": "alice@patient.com",
+                "first_name": "Alice",
+                "last_name": "Patient",
+                "phone": "+15551234567",
+                "password": "Password123!",
+                "confirm_password": "Password123!",
+            },
+            follow_redirects=True,
+        )
+        assert reg_res.status_code == 200
+        with app.app_context():
+            registered_patient = User.query.filter_by(username="new_patient_alice").first()
+            assert registered_patient is not None
+            assert registered_patient.role == UserRole.PATIENT
+            assert registered_patient.check_password("Password123!") is True
+        print("✅ Public self-registration successfully creates Patient with hashed password.")
+
+        # 8. Test Patient Login & Session Management
+        patient_client = app.test_client()
+        login_res = patient_client.post(
+            "/login",
+            data={
+                "username": "new_patient_alice",
+                "password": "Password123!",
+            },
+            follow_redirects=True,
+        )
         assert login_res.status_code == 200
-        print("✅ Login route works.")
+        patient_html = login_res.data.decode("utf-8")
+        assert "Alice Patient" in patient_html
+        assert "Book Appointment" in patient_html
+        assert "My Appointments" in patient_html
+        print("✅ Patient login establishes session and renders patient-specific navbar.")
+
+        # 9. Test Role Protection Decorator (@admin_required blocks Patient)
+        admin_portal_attempt = patient_client.get("/admin/dashboard", follow_redirects=True)
+        assert admin_portal_attempt.status_code == 200
+        attempt_html = admin_portal_attempt.data.decode("utf-8")
+        assert "Access denied. Administrator privileges required." in attempt_html
+        print("✅ @admin_required decorator blocks Patient and flashes access denied message.")
+
+        # 10. Test Staff Login Portal (/staff/login) - Restricts Patients
+        unauth_client = app.test_client()
+        staff_patient_attempt = unauth_client.post(
+            "/staff/login",
+            data={
+                "username": "new_patient_alice",
+                "password": "Password123!",
+            },
+            follow_redirects=True,
+        )
+        staff_html = staff_patient_attempt.data.decode("utf-8")
+        assert "strictly for Doctors and Administrators" in staff_html
+        print("✅ Staff login portal (/staff/login) rejects Patient login attempts.")
+
+        # 11. Test Staff Login for Admin and Doctor
+        admin_client = app.test_client()
+        admin_login_res = admin_client.post(
+            "/staff/login",
+            data={
+                "username": "superadmin_test",
+                "password": "SuperSecret@123",
+            },
+            follow_redirects=True,
+        )
+        assert admin_login_res.status_code == 200
+        admin_html = admin_login_res.data.decode("utf-8")
+        assert "Admin Overview" in admin_html
+        assert "Search Directory" in admin_html
+        print("✅ Staff login allows Admin and renders Admin navbar.")
+
+        # 12. Test Doctor Login and Dashboard
+        doc_client = app.test_client()
+        doc_login_res = doc_client.post(
+            "/staff/login",
+            data={
+                "username": "dr_smith",
+                "password": "Doc@123",
+            },
+            follow_redirects=True,
+        )
+        assert doc_login_res.status_code == 200
+        doc_html = doc_login_res.data.decode("utf-8")
+        assert "Today's Agenda" in doc_html
+        assert "7-Day Availability" in doc_html
+        print("✅ Staff login allows Doctor and renders Doctor navbar.")
 
     finally:
         if os.path.exists(db_path):
