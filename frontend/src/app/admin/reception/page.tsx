@@ -26,6 +26,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
   Users,
   UserCheck,
   Clock,
@@ -43,6 +51,9 @@ import {
   Activity,
   HeartPulse,
   Sparkles,
+  Mail,
+  Phone,
+  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch, ApiError } from "@/lib/api";
@@ -248,6 +259,25 @@ export default function LiveReceptionQueuePage() {
     time: string;
     appointment_id: number;
   } | null>(null);
+
+  // Patient Profile Slide-out Sheet
+  const [selectedPatientForSheet, setSelectedPatientForSheet] = useState<{
+    appointment: QueueAppointmentItem;
+    doctor_name: string;
+    department: string;
+    cabin?: string;
+  } | null>(null);
+  const [isPatientSheetOpen, setIsPatientSheetOpen] = useState(false);
+
+  const openPatientProfile = (
+    appt: QueueAppointmentItem,
+    doctor_name: string,
+    department: string,
+    cabin?: string
+  ) => {
+    setSelectedPatientForSheet({ appointment: appt, doctor_name, department, cabin });
+    setIsPatientSheetOpen(true);
+  };
 
   const [checkingInId, setCheckingInId] = useState<number | null>(null);
 
@@ -650,13 +680,34 @@ export default function LiveReceptionQueuePage() {
 
                             {/* Patient Info */}
                             <TableCell>
-                              <div className="font-bold text-sm text-slate-900 dark:text-white">
-                                {appt.patient_name}
-                              </div>
-                              <div className="text-[11px] text-slate-400 flex items-center gap-2 mt-0.5">
-                                <span>ID: #{appt.patient_id}</span>
-                                {appt.phone && <span>• {appt.phone}</span>}
-                              </div>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  openPatientProfile(
+                                    appt,
+                                    group.doctor_name,
+                                    group.department,
+                                    group.cabin
+                                  )
+                                }
+                                className="text-left group flex items-center gap-2.5 hover:opacity-85 transition-opacity cursor-pointer"
+                              >
+                                <Avatar className="h-8 w-8 border border-blue-200 dark:border-blue-800">
+                                  <AvatarFallback className="bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300 font-bold text-xs">
+                                    {appt.patient_name.slice(0, 2).toUpperCase()}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <div className="font-bold text-sm text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors flex items-center gap-1.5">
+                                    {appt.patient_name}
+                                    <ChevronRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                  </div>
+                                  <div className="text-[11px] text-slate-400 flex items-center gap-2 mt-0.5">
+                                    <span>ID: #{appt.patient_id}</span>
+                                    {appt.phone && <span>• {appt.phone}</span>}
+                                  </div>
+                                </div>
+                              </button>
                             </TableCell>
 
                             {/* Chief Complaint */}
@@ -826,6 +877,174 @@ export default function LiveReceptionQueuePage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* ========================================================================= */}
+      {/* SLIDE-OUT SHEET: PATIENT RECEPTION PROFILE                                */}
+      {/* ========================================================================= */}
+      <Sheet open={isPatientSheetOpen} onOpenChange={setIsPatientSheetOpen}>
+        <SheetContent className="w-full sm:max-w-xl overflow-y-auto p-0 flex flex-col bg-white dark:bg-slate-900">
+          {selectedPatientForSheet && (
+            <div className="flex-1 flex flex-col justify-between">
+              <div>
+                {/* Header Profile Banner */}
+                <div className="p-6 border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-3.5">
+                      <Avatar className="h-12 w-12 border-2 border-blue-500/30">
+                        <AvatarFallback className="bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 font-black text-sm">
+                          {selectedPatientForSheet.appointment.patient_name.slice(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <SheetTitle className="text-xl font-black text-slate-900 dark:text-white">
+                            {selectedPatientForSheet.appointment.patient_name}
+                          </SheetTitle>
+                          <Badge variant="outline" className="text-[10px] font-mono">
+                            ID: #{selectedPatientForSheet.appointment.patient_id}
+                          </Badge>
+                        </div>
+                        <SheetDescription className="text-xs text-slate-500 flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
+                          {selectedPatientForSheet.appointment.patient_email && (
+                            <span className="flex items-center gap-1">
+                              <Mail className="h-3 w-3" />
+                              {selectedPatientForSheet.appointment.patient_email}
+                            </span>
+                          )}
+                          {selectedPatientForSheet.appointment.phone && (
+                            <>
+                              <span>•</span>
+                              <span className="flex items-center gap-1">
+                                <Phone className="h-3 w-3" />
+                                {selectedPatientForSheet.appointment.phone}
+                              </span>
+                            </>
+                          )}
+                        </SheetDescription>
+                      </div>
+                    </div>
+
+                    <Badge
+                      className={
+                        selectedPatientForSheet.appointment.status === "Waiting"
+                          ? "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 border-0 text-xs font-bold"
+                          : selectedPatientForSheet.appointment.status === "Completed"
+                          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-0 text-xs font-bold"
+                          : selectedPatientForSheet.appointment.status === "In-Progress"
+                          ? "bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 border-0 text-xs font-bold"
+                          : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-0 text-xs font-bold"
+                      }
+                    >
+                      {selectedPatientForSheet.appointment.status === "Waiting" && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mr-1 animate-ping"></span>
+                      )}
+                      {selectedPatientForSheet.appointment.status}
+                    </Badge>
+                  </div>
+                </div>
+
+                {/* Patient Reception Details */}
+                <div className="p-6 space-y-6">
+                  {/* Token Info */}
+                  <div className="p-4 rounded-xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-900/40 flex items-center justify-between">
+                    <div>
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-blue-700 dark:text-blue-300 block">
+                        Queue Position & Token
+                      </span>
+                      <p className="text-xl font-black font-mono text-blue-900 dark:text-blue-100 mt-0.5">
+                        {selectedPatientForSheet.appointment.token_number || "Unchecked / Not Issued"}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] text-slate-400 uppercase font-semibold">Scheduled Time</span>
+                      <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                        {selectedPatientForSheet.appointment.time}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Doctor & Cabin */}
+                  <div className="grid grid-cols-2 gap-3 p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-xs">
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-bold">Consulting Physician</span>
+                      <strong className="text-slate-900 dark:text-white font-semibold flex items-center gap-1.5 mt-0.5">
+                        <Stethoscope className="h-3.5 w-3.5 text-blue-600" />
+                        {selectedPatientForSheet.doctor_name}
+                      </strong>
+                      <span className="text-[11px] text-slate-500">{selectedPatientForSheet.department}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-bold">Cabin Location</span>
+                      <strong className="text-slate-900 dark:text-white font-semibold flex items-center gap-1.5 mt-0.5">
+                        <Building2 className="h-3.5 w-3.5 text-slate-500" />
+                        {selectedPatientForSheet.cabin || "Main Clinic"}
+                      </strong>
+                    </div>
+                  </div>
+
+                  {/* Chief Complaint */}
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                      <Activity className="h-3.5 w-3.5 text-blue-600" />
+                      Chief Medical Complaint
+                    </Label>
+                    <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-200">
+                      {selectedPatientForSheet.appointment.chief_complaint || "Routine Clinical Consultation"}
+                    </div>
+                  </div>
+
+                  {/* Quick Reception Action in Sheet */}
+                  {selectedPatientForSheet.appointment.status === "Booked" && (
+                    <div className="p-4 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 space-y-2">
+                      <p className="font-bold text-xs text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+                        <UserCheck className="h-4 w-4 text-amber-600" />
+                        Patient Ready for Reception Desk Handover
+                      </p>
+                      <p className="text-[11px] text-amber-700 dark:text-amber-300">
+                        Arriving patient can be checked in immediately. A new token will be printed for the waiting lobby queue.
+                      </p>
+                      <Button
+                        size="sm"
+                        disabled={checkingInId === selectedPatientForSheet.appointment.id}
+                        onClick={() => {
+                          const appt = selectedPatientForSheet.appointment;
+                          handleCheckIn(
+                            appt.id,
+                            selectedPatientForSheet.doctor_name,
+                            appt.patient_name,
+                            appt.time
+                          );
+                          setIsPatientSheetOpen(false);
+                        }}
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs gap-1.5 h-9 shadow-xs"
+                      >
+                        {checkingInId === selectedPatientForSheet.appointment.id ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <UserCheck className="h-3.5 w-3.5" />
+                        )}
+                        Check-In & Issue Token
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Bottom Actions */}
+              <div className="p-4 border-t border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/60 flex items-center justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsPatientSheetOpen(false)}
+                  className="text-xs"
+                >
+                  Close Profile
+                </Button>
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
