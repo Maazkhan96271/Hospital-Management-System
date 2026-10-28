@@ -9,20 +9,13 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  User,
-  HeartPulse,
-  Activity,
   FileText,
-  Clock,
   ChevronLeft,
   Mail,
   Phone,
   Calendar,
   Pill,
-  FlaskConical,
-  Receipt,
   Stethoscope,
-  ShieldCheck,
 } from "lucide-react";
 
 interface TreatmentRecord {

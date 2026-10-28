@@ -9,10 +9,6 @@ import {
   Clock,
   CheckCircle2,
   Save,
-  Plus,
-  Trash2,
-  Video,
-  Building2,
 } from "lucide-react";
 import { toast } from "sonner";
 

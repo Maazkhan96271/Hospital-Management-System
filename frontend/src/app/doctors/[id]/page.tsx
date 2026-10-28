@@ -9,11 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Stethoscope,
-  CalendarCheck,
   Star,
   Clock,
-  MapPin,
   Award,
   Video,
   Building2,
@@ -21,10 +18,7 @@ import {
   CalendarPlus,
   ShieldCheck,
   CheckCircle2,
-  Phone,
-  Mail,
 } from "lucide-react";
-import { toast } from "sonner";
 
 interface DoctorData {
   id: number;

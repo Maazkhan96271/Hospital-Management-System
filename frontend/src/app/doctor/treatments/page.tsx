@@ -8,12 +8,10 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   FileText,
-  Clock,
   User,
   Stethoscope,
   Pill,
   Search,
-  ChevronRight,
 } from "lucide-react";
 
 interface DoctorTreatment {

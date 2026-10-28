@@ -8,15 +8,10 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   FileText,
-  Activity,
-  Calendar,
   Stethoscope,
   Pill,
   FlaskConical,
-  ChevronRight,
   Download,
-  Receipt,
-  HeartPulse,
 } from "lucide-react";
 import { toast } from "sonner";
 

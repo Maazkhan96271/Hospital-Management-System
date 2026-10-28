@@ -21,8 +21,6 @@ import {
   Copy,
   Check,
   ShieldCheck,
-  ExternalLink,
-  Info,
 } from "lucide-react";
 import { toast } from "sonner";
 

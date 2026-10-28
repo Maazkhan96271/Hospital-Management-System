@@ -1,7 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { HeartPulse, ArrowLeft, Home, Search, CalendarPlus } from "lucide-react";
+import { HeartPulse, ArrowLeft, Search, CalendarPlus } from "lucide-react";
 
 export default function NotFound() {
   return (

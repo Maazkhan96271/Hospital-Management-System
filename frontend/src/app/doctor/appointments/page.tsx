@@ -9,12 +9,10 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   CalendarCheck,
-  Clock,
   Video,
   Building2,
   ChevronRight,
   Stethoscope,
-  Filter,
 } from "lucide-react";
 import { VideoCallModal } from "@/components/telemedicine/VideoCallModal";
 

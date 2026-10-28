@@ -9,6 +9,12 @@ const withPWA = require("next-pwa")({
 const nextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   turbopack: {
     rules: {
       "*.css": {

@@ -10,17 +10,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   CalendarCheck,
   CalendarPlus,
-  Clock,
   Video,
   Building2,
-  CheckCircle2,
   CreditCard,
-  ChevronRight,
-  Stethoscope,
 } from "lucide-react";
 import { PaymentGatewayModal } from "@/components/telemedicine/PaymentGatewayModal";
 import { VideoCallModal } from "@/components/telemedicine/VideoCallModal";
-import { toast } from "sonner";
 
 interface PatientAppointment {
   id: number;

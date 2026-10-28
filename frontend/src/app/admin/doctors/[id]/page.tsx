@@ -9,16 +9,12 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Stethoscope,
   ChevronLeft,
   Mail,
   Phone,
-  Building2,
   Calendar,
   Clock,
   CheckCircle2,
-  ShieldCheck,
-  Star,
 } from "lucide-react";
 
 function AdminDoctorDetailContent() {
