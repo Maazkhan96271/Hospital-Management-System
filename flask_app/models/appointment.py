@@ -13,6 +13,20 @@ class AppointmentStatus:
     NO_SHOW = "no_show"
 
 
+class ConsultationType:
+    """Consultation delivery modes."""
+    IN_PERSON = "In-Person"
+    VIDEO = "Video"
+
+
+class AppointmentPaymentStatus:
+    """Payment settlement status for an appointment."""
+    UNPAID = "Unpaid"
+    PAID = "Paid"
+    PARTIAL = "Partial"
+    REFUNDED = "Refunded"
+
+
 class Appointment(db.Model):
     """Consultation booking between a patient and a doctor."""
 
@@ -32,6 +46,16 @@ class Appointment(db.Model):
     appointment_date = db.Column(db.Date, nullable=False, default=date.today)
     appointment_time = db.Column(db.Time, nullable=False, default=time(9, 0))
     status = db.Column(db.String(20), nullable=False, default=AppointmentStatus.SCHEDULED)
+    consultation_type = db.Column(
+        db.String(20),
+        nullable=False,
+        default=ConsultationType.IN_PERSON,
+    )
+    payment_status = db.Column(
+        db.String(20),
+        nullable=False,
+        default=AppointmentPaymentStatus.UNPAID,
+    )
     reason = db.Column(db.Text, nullable=True)
     notes = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

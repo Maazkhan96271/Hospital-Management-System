@@ -34,6 +34,20 @@ class AppointmentStatus(str, Enum):
     CANCELLED = "Cancelled"
 
 
+class ConsultationType(str, Enum):
+    """Consultation delivery modes."""
+    IN_PERSON = "In-Person"
+    VIDEO = "Video"
+
+
+class AppointmentPaymentStatus(str, Enum):
+    """Appointment payment settlement status."""
+    UNPAID = "Unpaid"
+    PAID = "Paid"
+    PARTIAL = "Partial"
+    REFUNDED = "Refunded"
+
+
 class Appointment(Base):
     """Patient and Doctor consultation appointment record."""
 
@@ -71,6 +85,18 @@ class Appointment(Base):
     status: Mapped[str] = mapped_column(
         String(20),
         default=AppointmentStatus.BOOKED.value,
+        nullable=False,
+        index=True,
+    )
+    consultation_type: Mapped[str] = mapped_column(
+        String(20),
+        default=ConsultationType.IN_PERSON.value,
+        nullable=False,
+        index=True,
+    )
+    payment_status: Mapped[str] = mapped_column(
+        String(20),
+        default=AppointmentPaymentStatus.UNPAID.value,
         nullable=False,
         index=True,
     )

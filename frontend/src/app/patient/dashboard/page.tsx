@@ -33,9 +33,16 @@ import {
   Activity,
   Star,
   Check,
+  Video,
+  CreditCard,
+  Building2,
+  ShieldCheck,
+  PhoneCall,
 } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch, ApiError } from "@/lib/api";
+import { PaymentGatewayModal } from "@/components/telemedicine/PaymentGatewayModal";
+import { VideoCallModal } from "@/components/telemedicine/VideoCallModal";
 
 interface PatientLabReport {
   id: number;
@@ -109,8 +116,27 @@ export default function PatientDashboardPage() {
   const [labReports, setLabReports] = useState<PatientLabReport[]>(FALLBACK_PATIENT_LABS);
   const [loadingLabs, setLoadingLabs] = useState(false);
 
+  // Upcoming Appointment & Telemedicine state
+  const [upcomingAppointment, setUpcomingAppointment] = useState({
+    id: 101,
+    doctor_name: "Dr. Alice Smith",
+    doctor_specialty: "Cardiovascular Medicine",
+    date: "Today, Oct 28",
+    time: "09:30 AM",
+    duration: 30,
+    consultation_type: "Video" as "In-Person" | "Video",
+    payment_status: "Unpaid" as "Unpaid" | "Paid",
+    fee: 500.0,
+    isToday: true,
+  });
+
+  // Telemedicine & Payment Modals
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
+
   // Booking modal states
   const [bookingDoctor, setBookingDoctor] = useState<Doctor | null>(null);
+  const [bookingConsultationType, setBookingConsultationType] = useState<"In-Person" | "Video">("Video");
   const [selectedDate, setSelectedDate] = useState<string>("2026-11-02");
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
@@ -255,12 +281,27 @@ export default function PatientDashboardPage() {
           date: selectedDate,
           time: selectedSlot,
           duration_minutes: 30,
+          consultation_type: bookingConsultationType,
+          payment_status: "Unpaid",
           notes: notes.trim() || undefined,
         }),
       });
 
+      setUpcomingAppointment({
+        id: Math.floor(100 + Math.random() * 900),
+        doctor_name: bookingDoctor.name,
+        doctor_specialty: bookingDoctor.department,
+        date: selectedDate,
+        time: selectedSlot,
+        duration: 30,
+        consultation_type: bookingConsultationType,
+        payment_status: "Unpaid",
+        fee: bookingDoctor.consultation_fee,
+        isToday: true,
+      });
+
       toast.success("Appointment booked successfully!", {
-        description: `Scheduled with ${bookingDoctor.name} on ${selectedDate} at ${selectedSlot}. Confirmation email dispatched to your inbox.`,
+        description: `Scheduled ${bookingConsultationType === "Video" ? "Video Consult" : "Clinic Visit"} with ${bookingDoctor.name} on ${selectedDate} at ${selectedSlot}.`,
       });
       setBookingDoctor(null);
     } catch (err: any) {
@@ -269,8 +310,21 @@ export default function PatientDashboardPage() {
           description: err.message || "This slot was just taken. Please choose another.",
         });
       } else {
+        setUpcomingAppointment({
+          id: Math.floor(100 + Math.random() * 900),
+          doctor_name: bookingDoctor.name,
+          doctor_specialty: bookingDoctor.department,
+          date: selectedDate,
+          time: selectedSlot,
+          duration: 30,
+          consultation_type: bookingConsultationType,
+          payment_status: "Unpaid",
+          fee: bookingDoctor.consultation_fee,
+          isToday: true,
+        });
+
         toast.success("Appointment booked successfully! (Demo Session)", {
-          description: `Confirmed with ${bookingDoctor.name} on ${selectedDate} at ${selectedSlot}. Confirmation email dispatched to your inbox.`,
+          description: `Confirmed ${bookingConsultationType === "Video" ? "Video Consult" : "Clinic Visit"} with ${bookingDoctor.name} on ${selectedDate} at ${selectedSlot}.`,
         });
         setBookingDoctor(null);
       }
@@ -418,36 +472,87 @@ export default function PatientDashboardPage() {
       ) : (
         <Card className="border-blue-200/90 dark:border-blue-900/40 bg-gradient-to-r from-blue-50/70 via-white to-indigo-50/60 dark:from-slate-900 dark:to-slate-900/60 shadow-xs hover:-translate-y-1 hover:shadow-lg transition-all">
           <CardContent className="p-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
               <div className="flex items-start gap-4">
-                <Avatar className="h-12 w-12 border-2 border-blue-500/30 shadow-md">
+                <Avatar className="h-12 w-12 border-2 border-blue-500/30 shadow-md shrink-0">
                   <AvatarFallback className="bg-gradient-to-tr from-blue-600 to-indigo-600 text-white font-bold text-sm">
                     AS
                   </AvatarFallback>
                 </Avatar>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="font-bold text-base text-slate-900 dark:text-white">
-                      Next Consultation: Dr. Alice Smith
+                      Next Consultation: {upcomingAppointment.doctor_name}
                     </h3>
                     <Badge variant="default" className="text-[10px]">Confirmed</Badge>
+
+                    {/* Consultation Type Badge */}
+                    {upcomingAppointment.consultation_type === "Video" ? (
+                      <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-[10px] font-bold gap-1">
+                        <Video className="h-3 w-3 text-purple-600 dark:text-purple-400" />
+                        Video Consult
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px] gap-1 text-slate-600 dark:text-slate-300">
+                        <Building2 className="h-3 w-3 text-slate-400" />
+                        Clinic Visit
+                      </Badge>
+                    )}
+
+                    {/* Payment Status Badge */}
+                    {upcomingAppointment.payment_status === "Paid" ? (
+                      <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-0 text-[10px] font-bold gap-1">
+                        <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                        Paid
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300 border-0 text-[10px] font-bold gap-1">
+                        Unpaid • ${upcomingAppointment.fee.toFixed(0)}
+                      </Badge>
+                    )}
                   </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Monday at 09:30 AM • Cardiovascular Medicine • 30-minute consultation
+                    {upcomingAppointment.date} at {upcomingAppointment.time} • {upcomingAppointment.doctor_specialty} • {upcomingAppointment.duration}-minute block
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              {/* Action Buttons: Pulsing Video Call & Pay Now */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Telemedicine Video Call Pulsing Button */}
+                {upcomingAppointment.consultation_type === "Video" && upcomingAppointment.isToday && (
+                  <Button
+                    size="sm"
+                    onClick={() => setIsVideoModalOpen(true)}
+                    className="text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white gap-2 shadow-lg shadow-emerald-500/30 animate-pulse ring-2 ring-emerald-400 cursor-pointer"
+                  >
+                    <Video className="h-4 w-4" />
+                    Join Video Call
+                  </Button>
+                )}
+
+                {/* Payment Gateway Trigger if Unpaid */}
+                {upcomingAppointment.payment_status === "Unpaid" && (
+                  <Button
+                    size="sm"
+                    onClick={() => setIsPaymentModalOpen(true)}
+                    className="text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white gap-1.5 shadow-sm cursor-pointer"
+                  >
+                    <CreditCard className="h-3.5 w-3.5" />
+                    Pay Now (${upcomingAppointment.fee.toFixed(0)})
+                  </Button>
+                )}
+
                 <Button asChild size="sm" variant="outline" className="text-xs font-semibold">
-                  <Link href="/patient/records">View Past Notes</Link>
+                  <Link href="/patient/records">Past Records</Link>
                 </Button>
                 <Button
                   size="sm"
-                  className="text-xs font-semibold bg-blue-600 hover:bg-blue-700"
+                  variant="secondary"
+                  className="text-xs font-semibold"
                   onClick={() => setBookingDoctor(doctors[0])}
                 >
-                  Reschedule Slot
+                  Reschedule
                 </Button>
               </div>
             </div>
@@ -757,10 +862,65 @@ export default function PatientDashboardPage() {
             </CardHeader>
 
             <CardContent className="space-y-6 pt-6">
-              {/* Calendly-Style Step 1: Date Selector */}
+              {/* Step 1: Video Consult vs Clinic Visit Toggle */}
               <div className="space-y-2">
                 <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  1. Select Consultation Date
+                  1. Select Consultation Delivery Mode
+                </Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setBookingConsultationType("In-Person")}
+                    className={`p-3 rounded-xl border text-xs text-left transition-all cursor-pointer flex items-center justify-between ${
+                      bookingConsultationType === "In-Person"
+                        ? "border-blue-600 bg-blue-50 dark:bg-blue-950/60 text-blue-900 dark:text-blue-100 shadow-xs"
+                        : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className={`p-2 rounded-lg ${bookingConsultationType === "In-Person" ? "bg-blue-600 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-600"}`}>
+                        <Building2 className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <p className="font-bold">Clinic Visit</p>
+                        <p className="text-[11px] text-slate-400">At hospital campus</p>
+                      </div>
+                    </div>
+                    {bookingConsultationType === "In-Person" && <CheckCircle2 className="h-4 w-4 text-blue-600" />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setBookingConsultationType("Video")}
+                    className={`p-3 rounded-xl border text-xs text-left transition-all cursor-pointer flex items-center justify-between ${
+                      bookingConsultationType === "Video"
+                        ? "border-blue-600 bg-blue-50 dark:bg-blue-950/60 text-blue-900 dark:text-blue-100 shadow-xs"
+                        : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className={`p-2 rounded-lg ${bookingConsultationType === "Video" ? "bg-blue-600 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-600"}`}>
+                        <Video className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <p className="font-bold flex items-center gap-1.5">
+                          Video Consult
+                          <Badge className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border-0 text-[9px] px-1 py-0">
+                            Telemed
+                          </Badge>
+                        </p>
+                        <p className="text-[11px] text-slate-400">1080p HD call from home</p>
+                      </div>
+                    </div>
+                    {bookingConsultationType === "Video" && <CheckCircle2 className="h-4 w-4 text-blue-600" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Step 2: Date Selector */}
+              <div className="space-y-2">
+                <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  2. Select Consultation Date
                 </Label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {[
@@ -786,11 +946,11 @@ export default function PatientDashboardPage() {
                 </div>
               </div>
 
-              {/* Calendly-Style Step 2: Available 30-Minute Time Blocks */}
+              {/* Step 3: Available 30-Minute Time Blocks */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                    2. Select an Available 30-Minute Time Block
+                    3. Select an Available 30-Minute Time Block
                   </Label>
                   {loadingSlots && <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />}
                 </div>
@@ -830,10 +990,10 @@ export default function PatientDashboardPage() {
                 )}
               </div>
 
-              {/* Step 3: Symptoms / Chief Complaint */}
+              {/* Step 4: Symptoms / Chief Complaint */}
               <div className="space-y-1.5">
                 <Label htmlFor="complaint" className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  3. Reason for Consultation (Optional)
+                  4. Reason for Consultation (Optional)
                 </Label>
                 <Input
                   id="complaint"
@@ -849,7 +1009,7 @@ export default function PatientDashboardPage() {
                 <div className="p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 text-xs text-emerald-900 dark:text-emerald-200 flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
                   <span>
-                    Ready to book: <strong>{selectedDate}</strong> at <strong>{selectedSlot}</strong> with <strong>{bookingDoctor.name}</strong>.
+                    Ready to book: <strong>{bookingConsultationType === "Video" ? "📹 Video Consult (Telemed)" : "🏥 Clinic Visit (In-Person)"}</strong> on <strong>{selectedDate}</strong> at <strong>{selectedSlot}</strong> with <strong>{bookingDoctor.name}</strong>.
                   </span>
                 </div>
               )}
@@ -881,6 +1041,36 @@ export default function PatientDashboardPage() {
           </Card>
         </div>
       )}
+
+      {/* Telemedicine Video Call Room Modal */}
+      <VideoCallModal
+        isOpen={isVideoModalOpen}
+        onClose={() => setIsVideoModalOpen(false)}
+        appointmentId={upcomingAppointment.id}
+        participantName={upcomingAppointment.doctor_name}
+        participantRole="Doctor"
+        consultationDate={upcomingAppointment.date}
+        consultationTime={upcomingAppointment.time}
+        department={upcomingAppointment.doctor_specialty}
+      />
+
+      {/* Stripe / Razorpay Payment Gateway Modal */}
+      <PaymentGatewayModal
+        isOpen={isPaymentModalOpen}
+        onClose={() => setIsPaymentModalOpen(false)}
+        appointmentId={upcomingAppointment.id}
+        doctorName={upcomingAppointment.doctor_name}
+        consultationType={upcomingAppointment.consultation_type}
+        consultationDate={upcomingAppointment.date}
+        consultationTime={upcomingAppointment.time}
+        amount={upcomingAppointment.fee}
+        onPaymentSuccess={(apptId, method, txId) => {
+          setUpcomingAppointment((prev) => ({
+            ...prev,
+            payment_status: "Paid",
+          }));
+        }}
+      />
     </div>
   );
 }

@@ -35,6 +35,8 @@ import {
   Receipt,
   Eye,
   Check,
+  Video,
+  Building2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -45,6 +47,8 @@ interface Appointment {
   appointment_datetime: string;
   duration_minutes: number;
   status: "Booked" | "Waiting" | "In-Progress" | "Completed" | "Cancelled";
+  consultation_type?: "In-Person" | "Video";
+  payment_status?: "Unpaid" | "Paid" | "Partial" | "Refunded";
   notes?: string;
   created_at: string;
   doctor?: {
@@ -273,6 +277,33 @@ export default function AdminAppointmentsPage() {
       cell: (row) => renderStatusBadge(row.status),
     },
     {
+      header: "Mode & Payment",
+      accessorKey: "consultation_type",
+      sortable: true,
+      cell: (row) => (
+        <div className="flex flex-col gap-1 items-start">
+          {row.consultation_type === "Video" ? (
+            <Badge className="bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300 border-0 text-[10px] gap-1">
+              <Video className="h-2.5 w-2.5" /> Video
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="text-[10px] gap-1 text-slate-500">
+              <Building2 className="h-2.5 w-2.5" /> In-Person
+            </Badge>
+          )}
+          <Badge
+            className={
+              row.payment_status === "Paid"
+                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-0 text-[10px]"
+                : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-0 text-[10px]"
+            }
+          >
+            {row.payment_status || "Unpaid"}
+          </Badge>
+        </div>
+      ),
+    },
+    {
       header: "Diagnosis / Notes",
       accessorKey: "treatment_record.diagnosis",
       sortable: false,
@@ -492,6 +523,34 @@ export default function AdminAppointmentsPage() {
                     <p className="font-bold text-slate-900 dark:text-white mt-0.5">
                       {new Date(selectedAppointment.appointment_datetime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                     </p>
+                  </div>
+                  <div>
+                    <p className="text-slate-400 text-[11px]">Consultation Mode</p>
+                    <div className="mt-0.5">
+                      {selectedAppointment.consultation_type === "Video" ? (
+                        <Badge className="bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300 border-0 text-[10px] gap-1">
+                          <Video className="h-3 w-3" /> Video Consult
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-[10px] gap-1 text-slate-500">
+                          <Building2 className="h-3 w-3" /> Clinic Visit
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-slate-400 text-[11px]">Payment Status</p>
+                    <div className="mt-0.5">
+                      <Badge
+                        className={
+                          selectedAppointment.payment_status === "Paid"
+                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-0 text-[10px]"
+                            : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-0 text-[10px]"
+                        }
+                      >
+                        {selectedAppointment.payment_status || "Unpaid"}
+                      </Badge>
+                    </div>
                   </div>
                 </div>
               </div>

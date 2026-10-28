@@ -11,7 +11,12 @@ from app.core.database import get_db
 from app.api.dependencies import get_current_active_user, get_current_doctor
 from app.models.user import User
 from app.models.doctor_profile import DoctorProfile
-from app.models.appointment import Appointment, AppointmentStatus
+from app.models.appointment import (
+    Appointment,
+    AppointmentStatus,
+    ConsultationType,
+    AppointmentPaymentStatus,
+)
 from app.models.treatment_record import TreatmentRecord
 from app.models.vitals import Vitals
 from app.models.pharmacy import PharmacyItem
@@ -22,6 +27,7 @@ from app.schemas.appointment import (
     AppointmentCreate,
     AppointmentOut,
     AppointmentStatusUpdate,
+    AppointmentPaymentUpdate,
     CompleteAppointmentRequest,
     DoctorAgendaOut,
 )
@@ -132,6 +138,8 @@ async def book_appointment(
         appointment_datetime=appt_in.appointment_datetime,
         duration_minutes=appt_in.duration_minutes,
         status=AppointmentStatus.BOOKED.value,
+        consultation_type=appt_in.consultation_type or ConsultationType.IN_PERSON.value,
+        payment_status=appt_in.payment_status or AppointmentPaymentStatus.UNPAID.value,
         notes=appt_in.notes,
     )
     db.add(appointment)
@@ -610,6 +618,72 @@ async def check_in_appointment(
         "appointment_time": appointment.appointment_datetime.strftime("%H:%M"),
         "notes": appointment.notes,
     }
+
+
+@router.post(
+    "/{appointment_id}/pay",
+    response_model=AppointmentOut,
+    summary="Record payment for an appointment (Telemedicine / Clinic Payment Gateway)",
+)
+@router.patch(
+    "/{appointment_id}/pay",
+    response_model=AppointmentOut,
+    include_in_schema=False,
+)
+async def pay_appointment(
+    appointment_id: int,
+    payment_in: Optional[AppointmentPaymentUpdate] = None,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+) -> AppointmentOut:
+    """
+    Simulates payment gateway settlement for an appointment and marks it as Paid.
+    Supports Credit Card, UPI, and NetBanking methods.
+    """
+    result = await db.execute(
+        select(Appointment)
+        .options(
+            selectinload(Appointment.patient).selectinload(User.role),
+            selectinload(Appointment.treatment_record),
+            selectinload(Appointment.invoices),
+        )
+        .filter(Appointment.id == appointment_id)
+    )
+    appointment = result.scalar_one_or_none()
+
+    if not appointment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Appointment #{appointment_id} not found.",
+        )
+
+    # Update appointment payment status
+    new_status = payment_in.payment_status if payment_in and payment_in.payment_status else "Paid"
+    appointment.payment_status = new_status
+
+    # Record payment transaction reference in notes
+    tx_id = payment_in.transaction_id if payment_in and payment_in.transaction_id else f"TXN_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
+    method = payment_in.payment_method if payment_in and payment_in.payment_method else "Credit Card"
+    pay_note = f"[Payment: Paid via {method} Ref #{tx_id}]"
+    if not appointment.notes or pay_note not in appointment.notes:
+        appointment.notes = ((appointment.notes or "") + f" {pay_note}").strip()
+
+    # Also update any linked invoices if present
+    for inv in appointment.invoices:
+        inv.payment_status = PaymentStatus.PAID.value
+        inv.payment_method = PaymentMethod.CREDIT_CARD.value if "Card" in method else PaymentMethod.CASH.value
+
+    await db.commit()
+
+    refetched = await db.execute(
+        select(Appointment)
+        .options(
+            selectinload(Appointment.patient).selectinload(User.role),
+            selectinload(Appointment.treatment_record),
+        )
+        .filter(Appointment.id == appointment.id)
+    )
+    return refetched.scalar_one()
 
 
 @router.get(

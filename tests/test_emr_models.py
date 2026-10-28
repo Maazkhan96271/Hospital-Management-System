@@ -20,6 +20,8 @@ from flask_app.models import (
     DoctorProfile,
     Appointment,
     AppointmentStatus,
+    ConsultationType,
+    AppointmentPaymentStatus,
     Vitals,
     PharmacyItem,
     LabTest,
@@ -350,3 +352,68 @@ def test_invoice_and_invoice_items_relationships(app_and_db):
 
     for item_id in item_ids:
         assert db.session.get(InvoiceItem, item_id) is None
+
+
+def test_appointment_telemedicine_and_payment_status(app_and_db):
+    """Verify Appointment consultation_type (In-Person, Video) and payment_status fields."""
+    app, db = app_and_db
+
+    patient = User(
+        email="telemed.patient@example.com",
+        username="telepatient",
+        first_name="Sara",
+        last_name="Connor",
+        role=UserRole.PATIENT,
+    )
+    patient.set_password("Pass@123")
+    doctor_user = User(
+        email="telemed.doctor@example.com",
+        username="teledoctor",
+        first_name="Gregory",
+        last_name="House",
+        role=UserRole.DOCTOR,
+    )
+    doctor_user.set_password("Doc@123")
+    db.session.add_all([patient, doctor_user])
+    db.session.commit()
+
+    dept = Department(name="Telemedicine & Remote Care", description="Virtual Care")
+    db.session.add(dept)
+    db.session.commit()
+
+    doctor_profile = DoctorProfile(
+        user_id=doctor_user.id,
+        department_id=dept.id,
+    )
+    db.session.add(doctor_profile)
+    db.session.commit()
+
+    # 1. Test In-Person Default Appointment
+    appt1 = Appointment(
+        patient_id=patient.id,
+        doctor_id=doctor_profile.id,
+        appointment_date=date.today(),
+        appointment_time=time(10, 0),
+        status=AppointmentStatus.SCHEDULED,
+    )
+    db.session.add(appt1)
+    db.session.commit()
+
+    assert appt1.consultation_type == ConsultationType.IN_PERSON
+    assert appt1.payment_status == AppointmentPaymentStatus.UNPAID
+
+    # 2. Test Video Consult Appointment
+    appt2 = Appointment(
+        patient_id=patient.id,
+        doctor_id=doctor_profile.id,
+        appointment_date=date.today(),
+        appointment_time=time(11, 30),
+        status=AppointmentStatus.SCHEDULED,
+        consultation_type=ConsultationType.VIDEO,
+        payment_status=AppointmentPaymentStatus.PAID,
+    )
+    db.session.add(appt2)
+    db.session.commit()
+
+    assert appt2.consultation_type == ConsultationType.VIDEO
+    assert appt2.payment_status == AppointmentPaymentStatus.PAID

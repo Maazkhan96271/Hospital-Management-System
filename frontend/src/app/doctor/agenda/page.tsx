@@ -48,9 +48,14 @@ import {
   Info,
   DollarSign,
   Microscope,
+  Video,
+  VideoOff,
+  Building2,
+  PhoneCall,
 } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/api";
+import { VideoCallModal } from "@/components/telemedicine/VideoCallModal";
 
 interface PastTreatmentHistory {
   date: string;
@@ -69,6 +74,9 @@ interface AppointmentItem {
   phone: string;
   chief_complaint: string;
   status: "Booked" | "In-Progress" | "Completed";
+  consultation_type?: "In-Person" | "Video";
+  payment_status?: "Unpaid" | "Paid";
+  is_today?: boolean;
   duration_minutes: number;
   diagnosis?: string;
   prescription?: string[];
@@ -154,6 +162,7 @@ export default function DoctorAgendaPage() {
   const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentItem | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [videoCallAppt, setVideoCallAppt] = useState<AppointmentItem | null>(null);
 
   // EMR Workspace Active Tab
   const [activeTab, setActiveTab] = useState<"vitals" | "diagnosis" | "prescriptions" | "labs" | "history">("vitals");
@@ -247,6 +256,9 @@ export default function DoctorAgendaPage() {
           phone: "+1 (555) 234-5678",
           chief_complaint: "Exertional chest discomfort and mild shortness of breath",
           status: "Booked",
+          consultation_type: "Video",
+          payment_status: "Paid",
+          is_today: true,
           duration_minutes: 30,
           past_history: [
             {
@@ -267,6 +279,9 @@ export default function DoctorAgendaPage() {
           phone: "+1 (555) 876-5432",
           chief_complaint: "Persistent dry cough, mild fever, and sinus congestion",
           status: "Booked",
+          consultation_type: "In-Person",
+          payment_status: "Unpaid",
+          is_today: true,
           duration_minutes: 30,
           past_history: [],
         },
@@ -279,6 +294,9 @@ export default function DoctorAgendaPage() {
           phone: "+1 (555) 345-6789",
           chief_complaint: "Severe left ankle swelling and pain after jogging",
           status: "In-Progress",
+          consultation_type: "Video",
+          payment_status: "Paid",
+          is_today: true,
           duration_minutes: 30,
           past_history: [
             {
@@ -299,6 +317,9 @@ export default function DoctorAgendaPage() {
           phone: "+1 (555) 901-2345",
           chief_complaint: "Routine diabetes and lipid profile quarterly checkup",
           status: "Booked",
+          consultation_type: "In-Person",
+          payment_status: "Paid",
+          is_today: true,
           duration_minutes: 30,
           past_history: [
             {
@@ -319,6 +340,9 @@ export default function DoctorAgendaPage() {
           phone: "+1 (555) 678-9012",
           chief_complaint: "Post-stent surgical cardiovascular review",
           status: "Completed",
+          consultation_type: "Video",
+          payment_status: "Paid",
+          is_today: true,
           duration_minutes: 30,
           diagnosis: "Stable cardiovascular recovery, normal sinus rhythm",
           prescription: ["Aspirin 81mg daily", "Metoprolol Tartrate 25mg BID", "Atorvastatin 20mg at bedtime"],
@@ -737,14 +761,40 @@ export default function DoctorAgendaPage() {
                         </p>
                       </div>
                     </div>
-                    <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-0 text-[10px]">
-                      Booked
-                    </Badge>
+                    <div className="flex flex-col items-end gap-1">
+                      <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border-0 text-[10px]">
+                        Booked
+                      </Badge>
+                      {appt.consultation_type === "Video" ? (
+                        <Badge className="bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300 border-0 text-[10px] gap-1">
+                          <Video className="h-3 w-3" /> Video
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-[10px] gap-1 text-slate-500">
+                          <Building2 className="h-3 w-3" /> Clinic
+                        </Badge>
+                      )}
+                    </div>
                   </div>
 
                   <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-2 mt-3 bg-slate-50 dark:bg-slate-800/50 p-2 rounded-lg border border-slate-100 dark:border-slate-800">
                     <span className="font-semibold text-slate-500">Chief Complaint:</span> {appt.chief_complaint}
                   </p>
+
+                  {/* Pulsing Join Video Call for Doctor */}
+                  {appt.consultation_type === "Video" && (
+                    <Button
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setVideoCallAppt(appt);
+                      }}
+                      className="w-full mt-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-8 gap-1.5 animate-pulse ring-2 ring-emerald-400 shadow-sm"
+                    >
+                      <Video className="h-3.5 w-3.5" />
+                      Join Video Call
+                    </Button>
+                  )}
 
                   <div className="flex items-center justify-between pt-3 mt-3 border-t border-slate-100 dark:border-slate-800 text-xs">
                     <span className="text-[11px] text-slate-400">
@@ -792,14 +842,40 @@ export default function DoctorAgendaPage() {
                         </p>
                       </div>
                     </div>
-                    <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 border-0 text-[10px]">
-                      In-Progress
-                    </Badge>
+                    <div className="flex flex-col items-end gap-1">
+                      <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 border-0 text-[10px]">
+                        In-Progress
+                      </Badge>
+                      {appt.consultation_type === "Video" ? (
+                        <Badge className="bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300 border-0 text-[10px] gap-1">
+                          <Video className="h-3 w-3" /> Video
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-[10px] gap-1 text-slate-500">
+                          <Building2 className="h-3 w-3" /> Clinic
+                        </Badge>
+                      )}
+                    </div>
                   </div>
 
                   <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-2 mt-3 bg-purple-50/50 dark:bg-purple-950/20 p-2 rounded-lg border border-purple-100 dark:border-purple-900/40">
                     <span className="font-semibold text-slate-500">Complaint:</span> {appt.chief_complaint}
                   </p>
+
+                  {/* Pulsing Join Video Call for Doctor */}
+                  {appt.consultation_type === "Video" && (
+                    <Button
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setVideoCallAppt(appt);
+                      }}
+                      className="w-full mt-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-8 gap-1.5 animate-pulse ring-2 ring-emerald-400 shadow-sm"
+                    >
+                      <Video className="h-3.5 w-3.5" />
+                      Join Video Call
+                    </Button>
+                  )}
 
                   <div className="flex items-center justify-between pt-3 mt-3 border-t border-slate-100 dark:border-slate-800 text-xs">
                     <span className="text-[11px] text-purple-600 dark:text-purple-400 font-medium">Recording EMR</span>
@@ -843,9 +919,16 @@ export default function DoctorAgendaPage() {
                         <p className="text-[11px] text-slate-400">{appt.time}</p>
                       </div>
                     </div>
-                    <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-0 text-[10px]">
-                      Completed
-                    </Badge>
+                    <div className="flex flex-col items-end gap-1">
+                      <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border-0 text-[10px]">
+                        Completed
+                      </Badge>
+                      {appt.consultation_type === "Video" && (
+                        <Badge className="bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300 border-0 text-[10px] gap-1">
+                          <Video className="h-3 w-3" /> Video
+                        </Badge>
+                      )}
+                    </div>
                   </div>
 
                   {appt.diagnosis && (
@@ -895,6 +978,15 @@ export default function DoctorAgendaPage() {
                 </div>
 
                 <div className="flex items-center gap-3">
+                  {appt.consultation_type === "Video" ? (
+                    <Badge className="bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300 border-0 text-xs gap-1">
+                      <Video className="h-3 w-3" /> Video
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-xs gap-1 text-slate-500">
+                      <Building2 className="h-3 w-3" /> Clinic
+                    </Badge>
+                  )}
                   <Badge
                     className={
                       appt.status === "Completed"
@@ -906,6 +998,22 @@ export default function DoctorAgendaPage() {
                   >
                     {appt.status}
                   </Badge>
+
+                  {/* Pulsing Join Video Call in List View */}
+                  {appt.consultation_type === "Video" && (
+                    <Button
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setVideoCallAppt(appt);
+                      }}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-8 gap-1.5 animate-pulse ring-2 ring-emerald-400 shadow-sm"
+                    >
+                      <Video className="h-3.5 w-3.5" />
+                      Join Video Call
+                    </Button>
+                  )}
+
                   <Button variant="ghost" size="sm" className="h-8 gap-1 text-xs">
                     EMR Chart <ChevronRight className="h-3.5 w-3.5" />
                   </Button>
@@ -967,6 +1075,29 @@ export default function DoctorAgendaPage() {
                     <span className="font-bold text-blue-900 dark:text-blue-200">Patient Chief Complaint:</span>{" "}
                     <span className="text-blue-800 dark:text-blue-300">{selectedAppointment.chief_complaint}</span>
                   </div>
+                </div>
+
+                {/* Telemedicine & Payment Strip in EMR Header */}
+                <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-200/60 dark:border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <Badge variant={selectedAppointment.consultation_type === "Video" ? "default" : "outline"} className={`text-xs gap-1.5 ${selectedAppointment.consultation_type === "Video" ? "bg-sky-600 hover:bg-sky-700 text-white" : ""}`}>
+                      {selectedAppointment.consultation_type === "Video" ? <Video className="h-3.5 w-3.5" /> : <Building2 className="h-3.5 w-3.5" />}
+                      {selectedAppointment.consultation_type === "Video" ? "Video Telemed Consult" : "In-Person Clinic Visit"}
+                    </Badge>
+                    <Badge variant="outline" className={`text-xs font-semibold ${selectedAppointment.payment_status === "Paid" ? "border-emerald-500 text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40" : "border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-950/40"}`}>
+                      Payment: {selectedAppointment.payment_status || "Unpaid"}
+                    </Badge>
+                  </div>
+                  {selectedAppointment.consultation_type === "Video" && (
+                    <Button
+                      size="sm"
+                      onClick={() => setVideoCallAppt(selectedAppointment)}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-8 gap-1.5 animate-pulse ring-2 ring-emerald-400 shadow-sm"
+                    >
+                      <Video className="h-3.5 w-3.5" />
+                      Launch Video Room
+                    </Button>
+                  )}
                 </div>
               </div>
 
@@ -1795,6 +1926,20 @@ export default function DoctorAgendaPage() {
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Telemedicine Video Conference Room Modal */}
+      {videoCallAppt && (
+        <VideoCallModal
+          isOpen={videoCallAppt !== null}
+          onClose={() => setVideoCallAppt(null)}
+          appointmentId={videoCallAppt.id}
+          participantName={videoCallAppt.patient_name}
+          participantRole="Patient"
+          consultationDate="Today"
+          consultationTime={videoCallAppt.time}
+          department="Clinical Practice"
+        />
+      )}
     </div>
   );
 }

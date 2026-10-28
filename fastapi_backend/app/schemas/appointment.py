@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any, List, Optional
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.models.appointment import AppointmentStatus
+from app.models.appointment import AppointmentStatus, ConsultationType, AppointmentPaymentStatus
 from app.schemas.user import UserOut
 from app.schemas.treatment import TreatmentRecordOut
 from app.schemas.vitals import VitalsOut
@@ -19,6 +19,8 @@ class AppointmentBase(BaseModel):
     date: Optional[str] = None
     time: Optional[str] = None
     duration_minutes: int = Field(30, ge=10, le=240)
+    consultation_type: Optional[str] = Field(default=ConsultationType.IN_PERSON.value, description="In-Person or Video")
+    payment_status: Optional[str] = Field(default=AppointmentPaymentStatus.UNPAID.value, description="Unpaid, Paid, Partial, Refunded")
     notes: Optional[str] = None
 
 
@@ -50,6 +52,14 @@ class AppointmentCreate(AppointmentBase):
 
 class AppointmentStatusUpdate(BaseModel):
     status: AppointmentStatus
+
+
+class AppointmentPaymentUpdate(BaseModel):
+    payment_status: Optional[str] = "Paid"
+    payment_method: Optional[str] = "Credit Card"
+    transaction_id: Optional[str] = None
+    amount: Optional[float] = None
+    notes: Optional[str] = None
 
 
 class VitalsInput(BaseModel):
@@ -91,6 +101,8 @@ class AppointmentOut(BaseModel):
     appointment_datetime: datetime
     duration_minutes: int
     status: str
+    consultation_type: str = "In-Person"
+    payment_status: str = "Unpaid"
     notes: Optional[str] = None
     created_at: datetime
     updated_at: datetime

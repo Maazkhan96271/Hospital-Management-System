@@ -17,6 +17,9 @@ import {
   AlertCircle,
   Loader2,
   ArrowRight,
+  Video,
+  Building2,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch, ApiError } from "@/lib/api";
@@ -53,6 +56,7 @@ export default function BookAppointmentPage() {
 
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [consultationType, setConsultationType] = useState<"In-Person" | "Video">("In-Person");
   const [notes, setNotes] = useState<string>("");
   const [isLoadingSlots, setIsLoadingSlots] = useState<boolean>(false);
   const [isBooking, setIsBooking] = useState<boolean>(false);
@@ -94,6 +98,8 @@ export default function BookAppointmentPage() {
         date: selectedDate,
         time: selectedSlot,
         duration_minutes: 30,
+        consultation_type: consultationType,
+        payment_status: "Unpaid",
         notes: notes.trim() || undefined,
       };
 
@@ -103,7 +109,7 @@ export default function BookAppointmentPage() {
       });
 
       toast.success("Appointment Booked Successfully!", {
-        description: `Confirmed for ${selectedDate} at ${selectedSlot}. Confirmation email dispatched to your inbox.`,
+        description: `Confirmed ${consultationType === "Video" ? "Video Consult" : "Clinic Visit"} for ${selectedDate} at ${selectedSlot}. Confirmation dispatched to your inbox.`,
       });
 
       router.push("/patient/dashboard");
@@ -116,7 +122,7 @@ export default function BookAppointmentPage() {
       } else {
         // Fallback for standalone demo
         toast.success("Appointment Booked Successfully! (Demo Session)", {
-          description: `Scheduled with Dr. Alice Smith for ${selectedDate} at ${selectedSlot}. Confirmation email dispatched to your inbox.`,
+          description: `Scheduled ${consultationType === "Video" ? "Video Consult" : "Clinic Visit"} with Dr. Alice Smith for ${selectedDate} at ${selectedSlot}.`,
         });
         router.push("/patient/dashboard");
       }
@@ -186,6 +192,61 @@ export default function BookAppointmentPage() {
               </p>
             </CardContent>
           </Card>
+
+          {/* Telemedicine vs Clinic Visit Toggle */}
+          <Card className="border-slate-200 dark:border-slate-800">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">3. Consultation Mode</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <button
+                type="button"
+                onClick={() => setConsultationType("In-Person")}
+                className={`w-full p-3 rounded-xl border text-xs text-left transition-all cursor-pointer flex items-center justify-between ${
+                  consultationType === "In-Person"
+                    ? "border-blue-600 bg-blue-50/60 dark:bg-blue-950/40 text-blue-900 dark:text-blue-100 shadow-xs"
+                    : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900"
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className={`p-2 rounded-lg ${consultationType === "In-Person" ? "bg-blue-600 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-600"}`}>
+                    <Building2 className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="font-bold">Clinic Visit</p>
+                    <p className="text-[11px] text-slate-400">In-Person at hospital</p>
+                  </div>
+                </div>
+                {consultationType === "In-Person" && <CheckCircle2 className="h-4 w-4 text-blue-600" />}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setConsultationType("Video")}
+                className={`w-full p-3 rounded-xl border text-xs text-left transition-all cursor-pointer flex items-center justify-between ${
+                  consultationType === "Video"
+                    ? "border-blue-600 bg-blue-50/60 dark:bg-blue-950/40 text-blue-900 dark:text-blue-100 shadow-xs"
+                    : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900"
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className={`p-2 rounded-lg ${consultationType === "Video" ? "bg-blue-600 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-600"}`}>
+                    <Video className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="font-bold flex items-center gap-1.5">
+                      Video Consult
+                      <Badge className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border-0 text-[9px] px-1 py-0">
+                        Telemed
+                      </Badge>
+                    </p>
+                    <p className="text-[11px] text-slate-400">1080p HD call from home</p>
+                  </div>
+                </div>
+                {consultationType === "Video" && <CheckCircle2 className="h-4 w-4 text-blue-600" />}
+              </button>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Right Column: Slot Selection & Confirmation */}
@@ -194,7 +255,7 @@ export default function BookAppointmentPage() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-base">3. Available 30-Minute Slots</CardTitle>
+                  <CardTitle className="text-base">4. Available 30-Minute Slots</CardTitle>
                   <CardDescription className="text-xs">
                     Cross-referenced in real-time with the Appointment table to exclude conflicts.
                   </CardDescription>
@@ -264,7 +325,7 @@ export default function BookAppointmentPage() {
                     <span>Booking Confirmation Summary</span>
                   </div>
                   <p className="text-slate-600 dark:text-slate-300">
-                    Consultation with <strong className="text-slate-900 dark:text-white">{selectedDoctor.name}</strong> ({selectedDoctor.specialization}) on{" "}
+                    <strong className="text-slate-900 dark:text-white">{consultationType === "Video" ? "📹 Video Consult (Telemedicine)" : "🏥 Clinic Visit (In-Person)"}</strong> with <strong className="text-slate-900 dark:text-white">{selectedDoctor.name}</strong> ({selectedDoctor.specialization}) on{" "}
                     <strong className="text-slate-900 dark:text-white">{selectedDate}</strong> at{" "}
                     <strong className="text-blue-600 dark:text-blue-400">{selectedSlot}</strong> (30 minutes).
                   </p>
